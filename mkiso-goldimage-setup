@@ -1,0 +1,93 @@
+#!/bin/bash
+
+set -e
+
+unset overwrite
+url=http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm
+script="$(dirname $0)"/initialise.cron
+outfile=goldimage-setup.iso
+
+usage() {
+cat <<EOF
+  Usage:
+    mkiso-goldimage-setup [-O] [-o <output>] [-p <url>] [-s <script>]
+
+  Options:
+    -O: Overwrite old image if it exists.
+    -o: Output filename.
+        $outfile
+    -u: Puppet repository package URL.
+        $url
+    -s: Cron's initialiser script.
+        $script
+EOF
+}
+
+while getopts 'o:u:s:O' arg; do
+  case $arg in
+    o) outfile=$OPTARG ;;
+    u) url=$OPTARG ;;
+    s) script=$OPTARG ;;
+    O) overwrite=1 ;;
+    ?)
+      usage
+      exit 1
+      ;;
+  esac
+done
+shift $(expr $OPTIND - 1)
+
+build=$(mktemp -d)
+trap 'rm -fr "$build"' EXIT
+echo Created temporary build directory $build.
+echo Installing cron initialiser script.
+cp "$script" "$build"/initialise.cron
+chmod 755 "$build"/initialise.cron
+echo Downloading puppetlabs repository setup package.
+wget -O "$build"/puppetlabs-repository.rpm "$url"
+echo Creating bootstrap script.
+cat <<EOF >"$build"/bootstrap-goldimage
+#!/bin/sh
+set -e
+c=/root/initialise.cron
+cp -n "\$(dirname \$0)"/initialise.cron \$c
+chmod 755 \$c
+rpm -ivh "\$(dirname \$0)"/puppetlabs-repository.rpm
+( set +e; crontab -l 2>/dev/null; echo '* * * * *' \$c ) | crontab
+echo Finished. You should shutdown now.
+EOF
+chmod 755 "$build"/bootstrap-goldimage
+echo Creating README.
+cat <<EOF >"$build"/README
+This ISO is used to prepare a plain CentOS image into a gold image suitable for
+automatic initialisation.
+
+Mount it and run the bootstrap-goldimage script which will prepare the puppet
+repository and install the initialiser script in cron.
+
+For example:
+
+# mount /dev/cdrom /mnt
+# /mnt/bootstrap-goldimage
+# umount /mnt
+EOF
+
+newfs=$(mktemp)
+echo Generating output image in $newfs
+# Commented out because vmware can only do CDs
+#genext2fs -d "$build" -b $((20*1024)) -m0 $newfs # 20MB
+genisoimage -r -o $newfs "$build"
+
+if [ -e "$outfile" ]; then
+  echo "$outfile is in the way." >&2
+  if [ -z "$overwrite" ]; then
+    echo "Leaving generated image as $newfs."
+    exit 0
+  fi
+
+  echo "Deleting it as instructed."
+  rm -f "$outfile"
+fi
+
+mv "$newfs" "$outfile"
+echo Finished.
