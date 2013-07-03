@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+if [ "$at_source_url" != "${at_source_url#http}" ]; then
+  dl="$(mktemp)"
+  trap "rm -f $dl" EXIT
+  wget -O $dl "$at_source_url"
+  at_source_url=$dl
+fi
+
+xorriso -indev "$at_source_url" -osirrox on -extract / "$at_build_dir"

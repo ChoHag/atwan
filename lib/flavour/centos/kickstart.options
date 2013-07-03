@@ -1,0 +1,31 @@
+#!/bin/sh
+
+cat <<EOF
+install
+text
+cdrom
+reboot
+
+lang en_US.UTF-8
+keyboard us
+timezone UTC
+
+skipx
+
+firewall --disabled
+
+authconfig --enableshadow --enablemd5
+rootpw $at_root_password
+selinux --permissive
+
+bootloader --location=mbr
+
+zerombr
+clearpart --all --initlabel
+part /boot --asprimary --size=256 --fstype ext3
+part pv.1 --asprimary --size=6144 --grow 
+volgroup vg--os --pesize=16384 pv.1
+logvol swap --fstype swap --name=swap0 --vgname=vg--os --size=2048
+logvol / --fstype ext4 --name=root --vgname=vg--os --size=4096
+
+EOF

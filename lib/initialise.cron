@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+
+if ! awk '$2 == "/mnt" {exit 1}' /proc/mounts; then # if clause is inverted
+  echo $0: /mnt is already mounted. >&2
+  exit 1
+fi
+
+if [ -e /var/lock/initialise.lock ]; then
+  exit 2
+fi
+echo $$ >/var/lock/initialise.lock
+trap 'rm -f /var/lock/initialise.lock' EXIT
+
+mount -o ro /dev/cdrom /mnt 2>/dev/null || exit 3
+
+if [ -e /mnt/autorun ]; then
+  ### Check for signature
+  export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+  /mnt/autorun
+  umount /mnt
+else
+  umount /mnt
+fi

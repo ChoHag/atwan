@@ -1,0 +1,6 @@
+#!/bin/sh
+
+## puppetlabs:
+# download rpm to Packages/
+# Recompile package list
+# Include in kickstart packages

@@ -1,0 +1,2 @@
+atbin="$(dirname $0)"
+atlib="$(dirname $0)"/lib
