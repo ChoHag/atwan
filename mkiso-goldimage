@@ -1,10 +1,17 @@
 #!/bin/bash
-. "$(dirname $0)"/atwan.installdirs
 
 default_outfile=./goldimage.iso
 default_root_password=secret
 
+#####
+
 set -e
+
+if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
+  echo "$(dirname $0)"/atwan.installdirs does not exist. Aborting. >&2
+  exit 1
+fi
+. "$(dirname $0)"/atwan.installdirs
 
 unset at_force at_workdir at_release at_source_url
 at_outfile=$default_outfile
