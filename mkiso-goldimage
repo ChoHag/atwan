@@ -20,7 +20,7 @@ at_root_password=$default_root_password
 usage() {
 cat <<EOF
   Usage:
-    mkiso-goldimage-iso [-f] [-w <work-dir>] [-o <output>] [-r <os-release>]
+    mkiso-goldimage [-f] [-w <work-dir>] [-o <output>] [-r <os-release>]
       [-p <root password>] -u <iso url>
 
   Options:
