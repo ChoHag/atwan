@@ -15,6 +15,8 @@ cat <<EOF
     -o: Output filename.
         initialiser-<fqdn>.iso
 
+    -h: HTTP proxy
+
     -i: Override the IP address (don't look up DNS).
     -n: New server's netmask. Default: 255.255.255.0
     -g: New server's gateway. Default: Server's IP with 4th quadrant changed to 1.
@@ -28,15 +30,16 @@ EOF
 
 unset overwrite bootstrap
 unset ip netmask gateway dns
-unset puppetdir
+unset puppetdir proxy_url
 unset outfile
 
-while getopts 'Oo:i:n:g:d:bBp:' arg; do
+while getopts 'Oo:h:i:n:g:d:bBp:' arg; do
   case $arg in
     O) overwrite=1 ;;
     o) outfile=$OPTARG ;;
     b) bootstrap=1 ;;
     B) bootstrap=full ;;
+    h) proxy_url=$OPTARG ;;
     i) ip=$OPTARG ;;
     n) netmask=$OPTARG ;;
     g) gateway=$OPTARG ;;
@@ -151,6 +154,7 @@ cat <<EOHOSTS >/etc/hosts
 EOHOSTS
 hostname $hostname
 pkill mingetty
+/etc/init.d/rsyslog restart
 
 cat <<EOIF >/etc/sysconfig/network-scripts/ifcfg-eth0
 DEVICE=eth0
@@ -168,6 +172,16 @@ echo search $domain > /etc/resolv.conf
 for ns in $dns; do
   echo nameserver \$ns >> /etc/resolv.conf
 done
+
+if [ "$proxy_url" ]; then
+  export http_proxy="$proxy_url" https_proxy="$proxy_url" ftp_proxy="$proxy_url"
+  (
+    echo http_proxy="$proxy_url"
+    echo https_proxy="$proxy_url"
+    echo ftp_proxy="$proxy_url"
+  ) >> /etc/environment
+  echo proxy=$proxy_url >> /etc/yum.conf
+fi
 
 EOAUTO
 chmod 755 "$build"/auto.network
