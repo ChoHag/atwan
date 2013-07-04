@@ -21,6 +21,7 @@ cat <<EOF
     -d: Space-separated list of DNS servers. Default from /etc/resolv.conf
 
     -b: Generate a bootstrap (first puppetmaster) autofs image.
+    -B: Generate a bootstrap autofs image with its regular manifest.
     -p: Puppet directory for bootstrap image.
 EOF
 }
@@ -30,11 +31,12 @@ unset ip netmask gateway dns
 unset puppetdir
 unset outfile
 
-while getopts 'Oo:i:n:g:d:bp:' arg; do
+while getopts 'Oo:i:n:g:d:bBp:' arg; do
   case $arg in
     O) overwrite=1 ;;
     o) outfile=$OPTARG ;;
     b) bootstrap=1 ;;
+    B) bootstrap=full ;;
     i) ip=$OPTARG ;;
     n) netmask=$OPTARG ;;
     g) gateway=$OPTARG ;;
@@ -89,16 +91,23 @@ if [ "$bootstrap" ]; then
     # A script which creates a script which creates a file. Ugly.
     cat <<ENCWRAP >"$tmppuppet"/puppet/puppetmaster-bootstrap-enc
 #!/bin/sh
-
+set -e
 cat <<ENC
+ENCWRAP
+    if [ "$bootstrap" = "full" ]; then
+      PUPPET_ENCDB="$tmppuppet"/puppet/enc.db "$tmppuppet"/puppet/enc $fqdn
+    else
+      cat <<ENCDB
 classes:
   puppet::master:
   openssh::server:
 environment: production
-ENC
-ENCWRAP
+ENCDB
+    fi >>"$tmppuppet"/puppet/puppetmaster-bootstrap-enc
+    echo ENC >> "$tmppuppet"/puppet/puppetmaster-bootstrap-enc
     chmod 755 "$tmppuppet"/puppet/puppetmaster-bootstrap-enc
   fi
+
   tar czf "$build"/puppet.tgz -C "$tmppuppet" puppet
   rm -fr "$tmppuppet"
   cat <<EOF >"$build"/auto.bootstrap
@@ -163,7 +172,10 @@ done
 EOAUTO
 chmod 755 "$build"/auto.network
 
+wget -O "$build"/puppetlabs.rpm http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm
+
 echo '#!/bin/sh' > "$build"/auto.puppet
+echo 'rpm -ivh /mnt/puppetlabs.rpm' >> "$build"/auto.puppet
 echo 'yum -y install puppet' >> "$build"/auto.puppet
 if [ "$bootstrap" ]; then
   echo 'puppet apply --detailed-exitcodes --verbose --node_terminus=exec --external_nodes=/etc/puppet/puppetmaster-bootstrap-enc /etc/puppet/manifests/site.pp 2>&1'
