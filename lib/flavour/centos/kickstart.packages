@@ -11,9 +11,9 @@ grub
 cronie
 cronie-anacron
 crontabs
+postfix
 -cyrus-sasl
 -info
--postfix
 -sysstat
 -yum-utils
 -mysql-libs
