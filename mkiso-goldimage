@@ -1,0 +1,124 @@
+#!/bin/bash
+. "$(dirname $0)"/atwan.installdirs
+
+default_outfile=./goldimage.iso
+default_root_password=secret
+
+set -e
+
+unset at_force at_workdir at_release at_source_url
+at_outfile=$default_outfile
+at_root_password=$default_root_password
+
+usage() {
+cat <<EOF
+  Usage:
+    mkiso-goldimage-iso [-f] [-w <work-dir>] [-o <output>] [-r <os-release>]
+      [-p <root password>] -u <iso url>
+
+  Options:
+    -f: Overwrite old image if it exists (force).
+    -w: Working directory
+	The default is that of mktemp, which is almost certainly /tmp.
+	Note that CentOS requires a lot of working space (approx. 9GB).
+    -o: Output filename.
+        $default_outfile
+    -r: OS release to create gold image of.
+	See $at_lib/releases for a list of available releases.
+
+    -p: Gold Image root user's password.
+	Default: $default_root_password
+    -u: Installer image URL.
+	Default is the value of source_url in
+	$at_lib/releases/<release>/variables, if it is set.
+EOF
+}
+
+while getopts 'fw:o:r:p:u:' arg; do
+  case $arg in
+    f) at_force=1 ;;
+    w) at_workdif=$OPTARG ;;
+    o) at_outfile=$OPTARG ;;
+    r) at_release=$OPTARG ;;
+    p) at_root_password=$OPTARG ;;
+    u) at_source_url=$OPTARG ;;
+    ?)
+      usage
+      exit 1
+      ;;
+  esac
+done
+shift $(expr $OPTIND - 1)
+
+if [ ! -e "$at_lib/release/$at_release" ]; then
+  echo Unknown OS release: $at_release. >&2
+  echo Check $at_lib/release. >&2
+  exit 1
+fi
+
+at_lib_release="$at_lib/release/$at_release"
+if [ ! -e "$at_lib_release"/variables ]; then
+  echo $at_release is not a valid release. >&2
+  exit 1
+fi
+. "$at_lib_release/variables"
+
+export at_force at_workdir at_release at_source_url
+export at_outfile at_root_password
+export at_bin at_lib at_lib_release
+export at_build_dir=$(mktemp ${at_workdir:---tmpdir=$at_workdir} -d)
+export at_meta_dir=$(mktemp ${at_workdir:---tmpdir=$at_workdir} -d)
+trap 'chmod +rwX -R "$at_build_dir" "$at_meta_dir" && rm -fr "$at_build_dir" "$at_meta_dir"' EXIT
+
+steps=(
+  "prepare:     Preparing build directory."
+  "extract:     Extracting $name image to $at_build_dir."
+  "initialiser: Attaching initialiser script."
+  "autoinstall: Setting up autoinstaller."
+)
+
+for step in "${steps[@]}"; do
+  script=${step%%:*}
+  message=${step#*:}
+  if [ -e "$at_lib_release/$script" ]; then
+    echo $message
+    "$at_lib_release/$script"
+  else
+    echo Skipping step: $message
+  fi
+done
+
+echo Creating README.
+cat <<EOF >"$at_build_dir"/README.atwan
+This ISO is a remixed $name installer iso used to install and prepare it for
+automatic configuration.
+
+EOF
+
+if [ -e "$at_lib_release/append-readme" ]; then
+  echo Appending $name-specific information to README.
+  "$at_lib_release/append-readme" >> "$at_build_dir"/README.atwan
+fi
+
+newfs=$(mktemp ${at_workdir:---tmpdir=$at_workdir})
+if [ -e "$at_lib_release/generate-iso" ]; then
+  echo Generating output image in $newfs
+  "$at_lib_release/generate-iso" "$newfs"
+else
+  echo "$at_lib_release/generate-iso does not exist." >&2
+  exit 1
+fi
+
+if [ -e "$at_outfile" ]; then
+  echo "$at_outfile is in the way." >&2
+  if [ "$at_force" = 1 ]; then
+    echo "Leaving generated image as $newfs."
+    exit 0
+  fi
+
+  echo "Deleting it as instructed."
+  rm -f "$at_outfile"
+fi
+mv "$newfs" "$at_outfile"
+
+echo Finished.

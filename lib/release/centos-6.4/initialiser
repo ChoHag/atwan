@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp "$atlib"/initialise.cron "$at_build_dir"/initialise.cron
+cp "$at_lib"/initialise.cron "$at_build_dir"/initialise.cron
 chmod 755 "$at_build_dir"/initialise.cron
 
 cat <<EOF >"$at_meta_dir"/ks.post/initialiser-1.nochroot

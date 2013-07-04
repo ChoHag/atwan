@@ -24,8 +24,8 @@ zerombr
 clearpart --all --initlabel
 part /boot --asprimary --size=256 --fstype ext3
 part pv.1 --asprimary --size=6144 --grow 
-volgroup vg--os --pesize=16384 pv.1
-logvol swap --fstype swap --name=swap0 --vgname=vg--os --size=2048
-logvol / --fstype ext4 --name=root --vgname=vg--os --size=4096
+volgroup vgos --pesize=16384 pv.1
+logvol swap --fstype swap --name=swap0 --vgname=vgos --size=2048
+logvol / --fstype ext4 --name=root --vgname=vgos --size=4096
 
 EOF

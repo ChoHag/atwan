@@ -3,7 +3,7 @@
 set -e
 
 if [ "$at_source_url" != "${at_source_url#http}" ]; then
-  dl="$(mktemp)"
+  dl="$(mktemp ${at_workdir:---tmpdir=$at_workdir})"
   trap "rm -f $dl" EXIT
   wget -O $dl "$at_source_url"
   at_source_url=$dl
