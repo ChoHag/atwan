@@ -1,6 +1,13 @@
 #!/bin/sh
 
-## puppetlabs:
-# download rpm to Packages/
-# Recompile package list
-# Include in kickstart packages
+wget -O "$at_build_dir"/puppetlabs.rpm http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm
+
+echo '#!/bin/sh' > "$at_build_dir"/auto.puppet
+echo 'rpm -Uvh "$at_top"/puppetlabs.rpm' >> "$at_build_dir"/auto.puppet
+echo 'yum -y install puppet' >> "$at_build_dir"/auto.puppet
+if [ "$at_bootstrap" ]; then
+  echo 'puppet apply --verbose --node_terminus=exec --external_nodes=/etc/puppet/bootstrap-enc /etc/puppet/manifests/site.pp'
+else
+  echo 'puppet agent --verbose --waitforcert 15'
+fi >> "$at_build_dir"/auto.puppet
+

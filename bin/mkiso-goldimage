@@ -13,41 +13,46 @@ if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
 fi
 . "$(dirname $0)"/atwan.installdirs
 
-unset at_force at_workdir at_release at_source_url
+unset at_force at_workdir at_release at_source_url at_cachedir
 at_outfile=$default_outfile
 at_root_password=$default_root_password
 
 usage() {
 cat <<EOF
   Usage:
-    mkiso-goldimage [-f] [-w <work-dir>] [-o <output>] [-r <os-release>]
-      [-p <root password>] -u <iso url>
+    mkiso-goldimage [-f] [-w <work-dir>] [-c <cache dir>]
+      [-o <output>] [-s <root password>]
+      -r <release> -u <installer url>
 
   Options:
     -f: Overwrite old image if it exists (force).
     -w: Working directory
 	The default is that of mktemp, which is almost certainly /tmp.
 	Note that CentOS requires a lot of working space (approx. 9GB).
+    -c: Cache directory
+	If set, a location to download files to. If the file already exists,
+	it is used instead.
     -o: Output filename.
         $default_outfile
+    -s: Gold Image root user's password.
+	Default: $default_root_password
     -r: OS release to create gold image of.
 	See $at_lib/releases for a list of available releases.
-
-    -p: Gold Image root user's password.
-	Default: $default_root_password
+	This MUST MATCH the release used to create initialiser iso images.
     -u: Installer image URL.
 	Default is the value of source_url in
 	$at_lib/releases/<release>/variables, if it is set.
 EOF
 }
 
-while getopts 'fw:o:r:p:u:' arg; do
+while getopts 'fw:o:r:s:u:' arg; do
   case $arg in
     f) at_force=1 ;;
-    w) at_workdif=$OPTARG ;;
+    w) at_workdir=$OPTARG ;;
+    c) at_cachedir=$OPTARG ;;
     o) at_outfile=$OPTARG ;;
     r) at_release=$OPTARG ;;
-    p) at_root_password=$OPTARG ;;
+    s) at_root_password=$OPTARG ;;
     u) at_source_url=$OPTARG ;;
     ?)
       usage
@@ -64,22 +69,29 @@ if [ ! -e "$at_lib/release/$at_release" ]; then
 fi
 
 at_lib_release="$at_lib/release/$at_release"
-if [ ! -e "$at_lib_release"/variables ]; then
+if [ ! -e "$at_lib_release"/meta ]; then
   echo $at_release is not a valid release. >&2
   exit 1
 fi
-. "$at_lib_release/variables"
+while IFS== read var val; do
+  if [ $var != ${var#\#} ]; then
+    continue
+  fi
+  if [ "$var" = "name" ]; then
+    export at_name="$val"
+  fi
+done < "$at_lib_release"/meta
 
 export at_force at_workdir at_release at_source_url
 export at_outfile at_root_password
 export at_bin at_lib at_lib_release
-export at_build_dir=$(mktemp ${at_workdir:---tmpdir=$at_workdir} -d)
-export at_meta_dir=$(mktemp ${at_workdir:---tmpdir=$at_workdir} -d)
-trap 'chmod +rwX -R "$at_build_dir" "$at_meta_dir" && rm -fr "$at_build_dir" "$at_meta_dir"' EXIT
+export at_build_dir=$(mktemp ${at_workdir:+--tmpdir=$at_workdir} -d)
+export at_meta_dir=$(mktemp ${at_workdir:+--tmpdir=$at_workdir} -d)
+trap 'chmod +rw -R "$at_build_dir" "$at_meta_dir" && rm -fr "$at_build_dir" "$at_meta_dir"' EXIT
 
 steps=(
   "prepare:     Preparing build directory."
-  "extract:     Extracting $name image to $at_build_dir."
+  "extract:     Extracting $at_name image to $at_build_dir."
   "initialiser: Attaching initialiser script."
   "autoinstall: Setting up autoinstaller."
 )
@@ -97,17 +109,17 @@ done
 
 echo Creating README.
 cat <<EOF >"$at_build_dir"/README.atwan
-This ISO is a remixed $name installer iso used to install and prepare it for
+This ISO is a remixed $at_name installer iso used to install and prepare it for
 automatic configuration.
 
 EOF
 
 if [ -e "$at_lib_release/append-readme" ]; then
-  echo Appending $name-specific information to README.
+  echo Appending $at_name-specific information to README.
   "$at_lib_release/append-readme" >> "$at_build_dir"/README.atwan
 fi
 
-newfs=$(mktemp ${at_workdir:---tmpdir=$at_workdir})
+newfs=$(mktemp ${at_workdir:+--tmpdir=$at_workdir})
 if [ -e "$at_lib_release/generate-iso" ]; then
   echo Generating output image in $newfs
   "$at_lib_release/generate-iso" "$newfs"
