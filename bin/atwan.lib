@@ -1,0 +1,83 @@
+#!/bin/sh
+
+check_arguments() {
+  if [[ -v at_work_dir && ! -d "$at_work_dir" ]]; then
+    echo Working directory $at_work_dir does not exist. >&2
+    exit 
+  fi
+
+  if [[ -v at_cache_dir && ! -d "$at_cache_dir" ]]; then
+    echo Cache directory $at_cache_dir does not exist. >&2
+    exit 
+  fi
+
+  export at_lib_release="$at_lib/release/$at_release"
+  if [[ "$at_release" =~ ^$|^[.-]|[/[:space:]] || ! -e "$at_lib_release/meta" ]]
+  then
+    echo Unknown OS release: $at_release. >&2
+    echo Check $at_lib/release. >&2
+    exit 1
+  fi
+
+  while IFS== read var val; do
+    if [[ $var =~ ^[[:space:]]*# ]]; then
+      continue
+    fi
+    valid=(name centos_installer_url centos_installer_file puppetlabs_url puppetlabs_file)
+    if [[ ${valid[@]} =~ "$var" ]]; then
+      eval "at_$var=\$val"
+      export at_$var
+    fi
+  done < "$at_lib_release"/meta
+}
+
+append_readme() {
+  type=$1
+
+  if [ -z "$type" ]; then
+    echo append_readme called without type. >&2
+    return 2
+  fi
+
+  echo Creating README.atwan.
+  cp "$at_lib"/README.$type "$at_build_dir"/README.atwan
+
+  if [ -e "$at_lib_release"/mk$type-append-readme ]; then
+    echo Appending $at_name-specific information to README.atwan.
+    if [ -x "$at_lib_release"/mk$type-append-readme ]; then
+      "$at_lib_release"/mk$type-append-readme >> "$at_build_dir"/README.atwan
+    else
+      cat "$at_lib_release"/mk$type-append-readme >> "$at_build_dir"/README.atwan
+    fi
+  fi
+}
+
+create_image() {
+  type=$1
+
+  if [ -z "$type" ]; then
+    echo create_image called without type. >&2
+    return 2
+  fi
+
+  newfs=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+  echo Generating output image in \""$newfs"\".
+  "$at_lib_release"/mk$type-generate-iso "$newfs"
+
+  if [[ -e "$at_out_file" ]]; then
+    echo $at_out_file is in the way. >&2
+    if [[ ! -v at_force ]]; then
+      echo Leaving generated image as \""$newfs"\".
+      exit 0
+    fi
+
+    echo Deleting it as instructed. >&2
+    rm -f "$at_out_file"
+  fi
+
+  echo Moving temporary iso image to \""$at_out_file"\".
+  mv "$newfs" "$at_out_file"
+
+  echo Finished.
+}
+

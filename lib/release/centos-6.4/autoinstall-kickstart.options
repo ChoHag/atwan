@@ -15,7 +15,7 @@ skipx
 firewall --disabled
 
 authconfig --enableshadow --enablemd5
-rootpw $at_root_password
+rootpw $at_secret
 selinux --permissive
 
 bootloader --location=mbr

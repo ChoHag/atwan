@@ -1,0 +1,4 @@
+This ISO is used by the atwan initialiser to identify a host. Simply place it
+in the cd drive (real or virtual) of a machine created with the corresponding
+atwan gold image.
+

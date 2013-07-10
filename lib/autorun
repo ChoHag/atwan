@@ -1,4 +1,5 @@
 #!/bin/sh
+
 set -e
 
 export at_top="$(dirname "$0")"
@@ -7,9 +8,9 @@ if [ -e /var/lock/autorun.lock ]; then
   echo autorun is locked by /var/lock/autorun.lock. >&2
   exit 1
 fi
-echo \$\$ > /var/lock/autorun.lock
+echo $$ > /var/lock/autorun.lock
 trap 'rm -f /var/lock/autorun.lock' EXIT
 
-. "$at_top"/auto.variables
+. "$at_top"/autorun-variables
 
 ### HEADER END

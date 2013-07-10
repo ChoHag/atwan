@@ -1,0 +1,2 @@
+#!/bin/sh
+"$at_bin"/atwan-cache-get at_puppetlabs "$at_lib_release"/mkinit-puppet.cached

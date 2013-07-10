@@ -1,5 +1,2 @@
 #!/bin/sh
-
-#genisoimage -r -o "$1" "$at_build_dir"
 xorriso -outdev "$1" -map "$at_build_dir" / -boot_image isolinux dir=/isolinux
-

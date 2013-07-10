@@ -1,3 +1,0 @@
-#!/bin/sh
-set -e
-crontab -l | awk '$6 != "/root/initialise.cron"' | crontab

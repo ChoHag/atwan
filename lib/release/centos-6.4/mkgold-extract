@@ -1,0 +1,2 @@
+#!/bin/sh
+"$at_bin"/atwan-cache-get at_centos_installer "$at_lib_release"/mkgold-extract.cached

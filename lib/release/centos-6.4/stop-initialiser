@@ -1,2 +1,0 @@
-#!/bin/sh
-cp "$at_lib_release"/auto.stop-initialiser "$at_build_dir"/auto.stop-initialiser

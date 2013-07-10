@@ -1,39 +1,36 @@
 #!/bin/bash
 
-#####
-
 set -e
 
 if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
   echo "$(dirname $0)"/atwan.installdirs does not exist. Aborting. >&2
   exit 1
 fi
-. "$(dirname $0)"/atwan.installdirs
+source "$(dirname $0)"/atwan.installdirs
+source "$at_bin"/atwan.lib
 
-unset at_force at_workdir at_cachedir at_outfile
+unset at_force at_work_dir at_cache_dir at_out_file
 unset at_bootstrap at_bootstrap_pm at_bootstrap_enc
-unset at_puppetdir at_proxy at_release at_secret
-unset at_dhcp at_name at_fqdn at_ip at_gateway at_dns
+unset at_puppet_dir at_proxy at_release at_secret
+unset at_dhcp at_hostname at_fqdn at_ip at_gateway at_dns
 at_mask=255.255.255.0
 
 usage() {
-### Line too long
 cat <<EOF
   Usage:
-    mkiso-initialiser [-f] [-w <work-dir>] [-c <cache dir>]
-      [-o <output>] [ (-b|-B) -p <puppet-dir> ] [ -h <http-proxy> ]
-      -r <release> [-s <root-password>]
+    mkiso-initialiser [-f] [-w <work dir>] [-c <cache dir>]
+      [-o <output>] [ (-b|-B) -p <puppet dir> ] [ -h <http proxy> ]
+      -r <release> [-s <root password>]
       ( -D | -n <fqdn> -i <ip> [-m <netmask>] [-g <gateway>] ) -d <dns>
 
   Options:
-    -f: Overwrite old image if it exists (force).
+    -f: Overwrite old image if it exists (force)
     -w: Working directory
 	The default is that of mktemp, which is almost certainly /tmp.
-	Note that CentOS requires a lot of working space (approx. 9GB).
     -c: Cache directory
 	If set, a location to download files to. If the file already exists,
 	it is used instead.
-    -o: Output filename.
+    -o: Output filename
         Default: Based on the template ./initialiser--(<fqdn>|DHCP).iso
     -b: Create a puppetmaster bootstrap iso.
     -B: Create a bootstrap iso using the node's own ENC entry.
@@ -64,17 +61,17 @@ EOF
 while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:' arg; do
   case $arg in
     f) export at_force=1 ;;
-    w) export at_workdir=$OPTARG ;;
-    c) export at_cachedir=$OPTARG ;;
-    o) export at_outfile=$OPTARG ;;
+    w) export at_work_dir=$OPTARG ;;
+    c) export at_cache_dir=$OPTARG ;;
+    o) export at_out_file=$OPTARG ;;
     b) export at_bootstrap_pm=1 ;;
     B) export at_bootstrap_enc=1 ;;
-    p) export at_puppetdir=$OPTARG ;;
+    p) export at_puppet_dir=$OPTARG ;;
     h) export at_proxy=$OPTARG ;;
     r) export at_release=$OPTARG ;;
     s) export at_secret=$OPTARG ;;
     D) export at_dhcp=1 ;;
-    n) export at_name=$OPTARG ;;
+    n) export at_hostname=$OPTARG ;;
     i) export at_ip=$OPTARG ;;
     m) export at_mask=$OPTARG ;;
     g) export at_gateway=$OPTARG ;;
@@ -87,19 +84,7 @@ while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:' arg; do
 done
 shift $(expr $OPTIND - 1)
 
-export at_lib_release="$at_lib/release/$at_release"
-if [ ! -e "$at_lib_release"/meta ]; then
-  echo $at_release is not a valid release. >&2
-  exit 1
-fi
-while IFS== read var val; do
-  if [ $var != ${var#\#} ]; then
-    continue
-  fi
-  if [ "$var" = "name" ]; then
-    export at_name="$val"
-  fi
-done < "$at_lib_release"/meta
+check_arguments
 
 if [ "$at_bootstrap_pm" -a "$at_bootstrap_enc" ]; then
   echo 'Cannot make a puppetmaster (-b) and an ENC (-B) bootstrap iso' >&2
@@ -111,57 +96,57 @@ elif [ "$at_bootstrap_enc" ]; then
   export at_bootstrap=enc
   echo Selected an ENC bootstrap iso.
 fi
-if [ "$at_bootstrap" -a -z "$at_puppetdir" ]; then
-  echo 'Need a puppetdir (-p) to build a bootstrap iso.' >&2
-  exit 1
+if [ "$at_bootstrap" ]; then
+  if [ -z "$at_puppet_dir" -o ! -d "$at_puppet_dir" ]; then
+    echo 'Need a puppet_dir (-p) to build a bootstrap iso.' >&2
+    exit 1
+  fi
 fi
 
-if [ -z "$at_dhcp" -a -z "$at_name" ]; then
+if [ -z "$at_dhcp" -a -z "$at_hostname" ]; then
   echo 'Need to specify DHCP (-D) or named (-n) iso.' >&2
   exit 1
-elif [ "$at_dhcp" -a "$at_name" ]; then
+elif [ "$at_dhcp" -a "$at_hostname" ]; then
   echo 'Cannot specify a DHCP (-D) and named (-n) iso.' >&2
   exit 1
-elif [ "$at_name" ]; then
-  export at_fqdn=$at_name
-  export at_hostname=${at_name%%.*}
-  export at_domain=${at_name#*.}
+elif [ "$at_hostname" ]; then
+  export at_fqdn=$at_hostname
+  export at_domain=${at_hostname#*.}
+  export at_hostname=${at_hostname%%.*}
   if [ -z "$at_domain" ]; then
     echo 'Named host must include a domain name (FQDN).' >&2
     exit 1
   fi
   if [ -z "$at_ip" ]; then
-    echo 'DNS lookup is unimplemented.' >&2
+    echo DNS lookup is unimplemented. >&2
     exit 2
   fi
   if [ -z "$at_gateway" ]; then
     at_gateway=${at_ip%.*}.1
   fi
-  echo Building a named iso for $at_name:
-  echo FQDN: $at_fqdn \($at_hostname \& $at_domain\)
-  echo IP: $at_ip
-  echo Netmask: $at_mask
-  echo Gateway: $at_gateway
+  echo Building a named iso for $at_fqdn:
+  echo \ \ FQDN: $at_fqdn \($at_hostname @ $at_domain\)
+  echo \ \ IP: $at_ip
+  echo \ \ Netmask: $at_mask
+  echo \ \ Gateway: $at_gateway
 elif [ "$at_dhcp" ]; then
-  echo 'DHCP iso is unimplemented.' >&2
+  echo DHCP iso is unimplemented. >&2
   exit 2
 else
-  echo 'The universe has broken logic.' >&2
+  echo The universe has broken logic. >&2
   exit 2
 fi
-echo DNS: $at_dns
+echo \ \ DNS: $at_dns
 
-if [ -z "$at_outfile" ]; then
+if [ -z "$at_out_file" ]; then
   if [ "$at_dhcp" ]; then
-    at_outfile="initialiser--DHCP.iso"
+    at_out_file="initialiser--DHCP.iso"
   else
-    at_outfile="initialiser--${at_fqdn}.iso"
+    at_out_file="initialiser--${at_fqdn}.iso"
   fi
 fi
-echo Writing to \""$at_outfile"\".
 
-
-export at_build_dir=$(mktemp ${at_workdir:+--tmpdir=$at_workdir} -d)
+export at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
 trap 'chmod +rw -R "$at_build_dir" && rm -fr "$at_build_dir"' EXIT
 
 steps=(
@@ -192,11 +177,11 @@ variables() {
       at_release
     do
       if eval [ \"\$$var\" ]; then
-	eval echo $var=\"\$$var\"
+	eval echo export $var=\"\$$var\"
       fi
       true
     done
-  ) | sed 's/^/export /' > "$at_build_dir"/auto.variables
+  ) > "$at_build_dir"/autorun-variables
 }
 
 secret() {
@@ -205,14 +190,14 @@ secret() {
     return
   fi
 
-  if [ ! -e "$at_lib_release"/secret ]; then
+  if [ ! -e "$at_lib_release"/mkinit-secret ]; then
     echo Do not know how to change root password for $at_release. >&2
     exit 1
   fi
 
   echo Changing root password.
-  "$at_lib_release"/secret
-  push_script auto.secret
+  "$at_lib_release"/mkinit-secret
+  push_script secret
 }
 
 
@@ -223,26 +208,26 @@ bootstrap() {
   fi
   echo Installing bootstrap functions.
 
-  tmppuppet=$(mktemp ${at_workdir:+--tmpdir=$at_workdir} -d)
-  rsync -a "$at_puppetdir"/ "$tmppuppet"/puppet/
-  if [ "$at_bootstrap" = "pm" ]; then
-    if [ -e "$tmppuppet"/puppet/bootstrap-enc ]; then
-      echo bootstrap-enc already exists in $at_puppetdir. >&2
+  puppet_tmpdir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+  rsync -a "$at_puppet_dir"/ "$puppet_tmpdir"/puppet/
+  if [ "$at_bootstrap" = pm ]; then
+    if [ -e "$puppet_tmpdir"/puppet/bootstrap-enc ]; then
+      echo bootstrap-enc already exists in $at_puppet_dir. >&2
       echo Using it instead. >&2
     else
-      cp "$at_lib"/bootstrap-enc "$tmppuppet"/puppet/bootstrap-enc
+      cp "$at_lib"/mkinit-bootstrap-enc "$puppet_tmpdir"/puppet/bootstrap-enc
     fi
-    chmod 755 "$tmppuppet"/puppet/bootstrap-enc
+    chmod 755 "$puppet_tmpdir"/puppet/bootstrap-enc
   fi
 
-  tar czf "$at_build_dir"/puppet.tgz -C "$tmppuppet" puppet
-  chmod +rw -R "$tmppuppet"
-  rm -fr "$tmppuppet"
-  cp "$at_lib"/auto.bootstrap "$at_build_dir"/auto.bootstrap
-  push_script auto.bootstrap
+  tar czf "$at_build_dir"/puppet.tgz -C "$puppet_tmpdir" puppet
+  chmod +rw -R "$puppet_tmpdir"
+  rm -fr "$puppet_tmpdir"
+  cp "$at_lib"/autorun-bootstrap "$at_build_dir"/autorun-bootstrap
+  push_script bootstrap
 }
 
-echo Setting up new host\'s initialiser environment:
+echo Setting up new host\'s initialiser:
 for step in "${steps[@]}"; do
   script=${step%%:*}
   message=${step#*:}
@@ -250,42 +235,26 @@ for step in "${steps[@]}"; do
     echo $message
     ${script#-}
   else
-    if [ -e "$at_lib_release"/$script ]; then
+    if [ -e "$at_lib_release"/mkinit-$script ]; then
       echo $message
-      "$at_lib_release"/$script
-      push_script auto.$script
+      "$at_lib_release"/mkinit-$script
+      push_script $script
     else
       echo Not installing step: $message
     fi
   fi
 done
-echo Finished.
+echo Host initialiser build complete.
 
 cp "$at_lib"/autorun "$at_build_dir"/autorun
-set | grep ^scr
+
 for script in ${scripts[@]}; do
-  chmod 755 "$at_build_dir"/$script
-  echo \"\$at_top\"/$script
+  chmod 755 "$at_build_dir"/autorun-$script
+  echo '"$at_top"'/autorun-$script
 done >> "$at_build_dir"/autorun
 chmod 755 "$at_build_dir"/autorun
 
+append_readme init
 
-
-
-newfs=$(mktemp ${at_workdir:+--tmpdir=$at_workdir})
-
-genisoimage -r -o $newfs "$at_build_dir"
-
-if [ -e "$at_outfile" ]; then
-  echo "$at_outfile is in the way."
-  if [ -z "$at_force" ]; then
-    echo "Leaving generated image as $newfs."
-    exit 0
-  fi
-
-  echo "Deleting it as instructed."
-  rm -f "$at_outfile"
-fi
-
-mv "$newfs" "$at_outfile"
+create_image init
 

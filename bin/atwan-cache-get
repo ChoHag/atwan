@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# Pass the name of a variable pair containing the url and filename to download
+# as the first argument and the command to run (which will have at_cache_file
+# set in its environment) as the rest.
+#
+# eg.
+#  export centos_url=http://foo.bar/centos-blah.iso centos_file=centos.iso
+#  atwan-cache-get centos do-something --with --arguments='and whitespace'
+#
+# If ${$name}_file is not set, it is calculated by stripping everything before
+# the final / character from the url.
+#
+# If $at_cache_file is not set but $at_cache_dir is, $at_cache_file is set to
+# $at_cache_dir/${$name}_file.
+#
+# If $at_cache_file and/or $at_cache_dir are set and the file exists, the
+# download is not performed.
+#
+# If the file must be downloaded, it will be saved into $at_cache_file. If
+# $at_cache_* are not set, it will be saved into $at_workdir (probably /tmp)
+# and then deleted when the task is completed.
+
+set -e
+
+name=$1
+shift
+echo .$name.
+if eval [ -z '"$name"' -o -z \"\$${name}_url\" ]; then
+  echo Download file not specified or invalid: $name. >&2
+  exit 1
+fi
+
+eval at_source_url=\$${name}_url
+eval at_source_file=\$${name}_file
+if [ -z "$at_source_file" ]; then
+  at_source_file=${at_source_url##*/}
+  echo "Determined downloaded filename automatically for $name ($at_source_url): $at_source_file."
+fi
+export at_source_url at_source_file
+
+if [ $# = 0 ]; then
+  echo "Don't know what to do with $at_source_url${at_cache_file:+ ($at_cache_file)}. Aborting download." >&2
+  exit 1
+fi
+
+if [ -z "$at_cache_file" ]; then
+  if [ "$at_cache_dir" ]; then
+    at_cache_file="$at_cache_dir"/"$at_source_file"
+  else
+    at_cache_file="$(mktemp ${at_workdir:+--tmpdir=$at_workdir})"
+    trap 'rm -f "$at_cache_file"' EXIT
+  fi
+fi
+export at_cache_file
+
+if [ -s "$at_cache_file" ]; then
+  echo $at_cache_file already exists. Not downloading.
+else
+  wget -O "$at_cache_file" "$at_source_url"
+fi
+
+"$@"

@@ -1,2 +1,2 @@
-at_bin="$(dirname $0)"
-at_lib="$(dirname $0)"/../lib
+export at_bin="$(dirname $0)"
+export at_lib="$(dirname $0)"/../lib

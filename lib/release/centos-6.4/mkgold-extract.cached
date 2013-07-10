@@ -1,0 +1,2 @@
+#!/bin/sh
+xorriso -indev "$at_cache_file" -osirrox on -extract / "$at_build_dir"

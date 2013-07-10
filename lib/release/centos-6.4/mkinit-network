@@ -1,0 +1,2 @@
+#!/bin/sh
+cp "$at_lib_release"/autorun-network "$at_build_dir"/autorun-network

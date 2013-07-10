@@ -1,0 +1,2 @@
+#!/bin/sh
+cp "$at_lib_release"/autorun-stop-initialiser "$at_build_dir"/autorun-stop-initialiser

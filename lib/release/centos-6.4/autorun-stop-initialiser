@@ -1,0 +1,2 @@
+#!/bin/sh
+crontab -l | awk '$6 != "/root/atwan-initialiser"' | crontab
