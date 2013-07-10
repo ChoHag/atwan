@@ -43,7 +43,7 @@ centos packages, and a script on the installed image in /root/initialiser.cron
 which it configures cron to run every minute.
 
 mkdir $SPACE/tmp
-mkiso-goldimage -o $SPACE/gold.iso -w $SPACE/tmp -r centos-6.4 -u $CENTOS
+mkiso-goldimage -o $SPACE/gold.iso -w $SPACE/tmp -r centos-6.4
 
 Then create a gold image vm.
 With the attmp class from above:
