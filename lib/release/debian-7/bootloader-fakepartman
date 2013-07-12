@@ -7,7 +7,7 @@
   echo '( echo ,1024,L,\\*';
   echo '  echo ,+,da ) | sfdisk -D $d';
   echo 'update-dev --settle';
-  echo 'pvcreate -ff ${d}2';
+  echo 'pvcreate -ffy ${d}2';
   echo 'vgcreate vgos ${d}2';
   echo 'update-dev --settle';
   echo 'lvcreate -L 1G -n swap0 vgos';
