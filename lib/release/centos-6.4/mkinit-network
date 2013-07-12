@@ -6,6 +6,8 @@ if [ $device_count != $udev_count ]; then
   # Just assume eth0 is gone so remove it from rules and rename eth1 to eth0
   mac=$(ip addr show | awk '/link\/ether/ {print $2}' | tail -n1)
   sed '1,6p;10p;11s/eth1/eth0/p' -i /etc/udev/rules.d/70-persistent-net.rules
+  # Otherwise udevadm tries to bring up eth0 despite ONBOOT:
+  sed 's/dhcp/none/' -i /etc/sysconfig/network-scripts/ifcfg-eth0
   udevadm control --reload-rules
   udevadm trigger
 elif [ $device_count = 1 ]; then
