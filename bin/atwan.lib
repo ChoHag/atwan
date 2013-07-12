@@ -19,16 +19,29 @@ check_arguments() {
     exit 1
   fi
 
+  read_meta "$at_lib_release"/meta
+  if [[ -v at_local_release_dir && -e "$at_local_release_dir"/meta ]]; then
+    read_meta "$at_local_release_dir"/meta
+  fi
+}
+
+read_meta() {
+  metafile=$1
   while IFS== read var val; do
     if [[ $var =~ ^[[:space:]]*# ]]; then
       continue
     fi
-    valid=(name centos_installer_url centos_installer_file puppetlabs_url puppetlabs_file)
+    valid=(
+      name puppetlabs_url puppetlabs_file
+      installer_url installer_file
+      repository_url repository_suite
+      repository_source repository_contrib repository_nonfree
+    )
     if [[ ${valid[@]} =~ "$var" ]]; then
       eval "at_$var=\$val"
       export at_$var
     fi
-  done < "$at_lib_release"/meta
+  done < "$metafile"
 }
 
 append_readme() {

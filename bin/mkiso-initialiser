@@ -13,7 +13,8 @@ unset at_force at_work_dir at_cache_dir at_out_file
 unset at_bootstrap at_bootstrap_pm at_bootstrap_enc
 unset at_puppet_dir at_proxy at_release at_secret
 unset at_dhcp at_hostname at_fqdn at_ip at_gateway at_dns
-at_mask=255.255.255.0
+unset at_local_release_dir
+export at_mask=255.255.255.0
 
 usage() {
 cat <<EOF
@@ -22,6 +23,7 @@ cat <<EOF
       [-o <output>] [ (-b|-B) -p <puppet dir> ] [ -h <http proxy> ]
       -r <release> [-s <root password>]
       ( -D | -n <fqdn> -i <ip> [-m <netmask>] [-g <gateway>] ) -d <dns>
+      [-l <local release dir>]
 
   Options:
     -f: Overwrite old image if it exists (force)
@@ -55,10 +57,12 @@ cat <<EOF
     -d: Host's DNS.
 	A white-space separated list. Use quotes.
 	Lookup from this machine's /etc/resolv.conf is not implemented.
+    -l: Local release dir.
+	Watch this space.
 EOF
 }
 
-while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:' arg; do
+while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:' arg; do
   case $arg in
     f) export at_force=1 ;;
     w) export at_work_dir=$OPTARG ;;
@@ -76,6 +80,7 @@ while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:' arg; do
     m) export at_mask=$OPTARG ;;
     g) export at_gateway=$OPTARG ;;
     d) export at_dns=$OPTARG ;;
+    l) export at_local_release_dir=$OPTARG ;;
     ?)
       usage
       exit 1
@@ -110,6 +115,7 @@ elif [ "$at_dhcp" -a "$at_hostname" ]; then
   echo 'Cannot specify a DHCP (-D) and named (-n) iso.' >&2
   exit 1
 elif [ "$at_hostname" ]; then
+  export at_network=static
   export at_fqdn=$at_hostname
   export at_domain=${at_hostname#*.}
   export at_hostname=${at_hostname%%.*}
@@ -122,7 +128,7 @@ elif [ "$at_hostname" ]; then
     exit 2
   fi
   if [ -z "$at_gateway" ]; then
-    at_gateway=${at_ip%.*}.1
+    export at_gateway=${at_ip%.*}.1
   fi
   echo Building a named iso for $at_fqdn:
   echo \ \ FQDN: $at_fqdn \($at_hostname @ $at_domain\)
@@ -130,6 +136,7 @@ elif [ "$at_hostname" ]; then
   echo \ \ Netmask: $at_mask
   echo \ \ Gateway: $at_gateway
 elif [ "$at_dhcp" ]; then
+  export at_network=dhcp
   echo DHCP iso is unimplemented. >&2
   exit 2
 else
@@ -140,9 +147,9 @@ echo \ \ DNS: $at_dns
 
 if [ -z "$at_out_file" ]; then
   if [ "$at_dhcp" ]; then
-    at_out_file="initialiser--DHCP.iso"
+    export at_out_file="initialiser--DHCP.iso"
   else
-    at_out_file="initialiser--${at_fqdn}.iso"
+    export at_out_file="initialiser--${at_fqdn}.iso"
   fi
 fi
 
@@ -155,6 +162,7 @@ steps=(
   "-secret:    Set root password?"
   "-bootstrap: Run bootstrap?"
   "network:    Configure network and HTTP proxy."
+  "repository: Configure package repository."
   "puppet:     Install and run puppet."
 )
 # proxy, secret
@@ -166,19 +174,8 @@ push_script() {
 
 variables() {
   (
-    if [ "$at_dhcp" ]; then
-      echo at_network=dhcp
-    else
-      echo at_network=static
-    fi
-    for var in at_bootstrap at_proxy  \
-      at_fqdn at_hostname at_domain   \
-      at_ip at_mask at_gateway at_dns \
-      at_release
-    do
-      if eval [ \"\$$var\" ]; then
-	eval echo export $var=\"\$$var\"
-      fi
+    for var in ${!at_*}; do
+	eval echo export $var=\\\"\$$var\\\"
       true
     done
   ) > "$at_build_dir"/autorun-variables
@@ -228,6 +225,25 @@ bootstrap() {
 }
 
 echo Setting up new host\'s initialiser:
+run-script() {
+  name=$1
+  script=$2
+  message=$3
+  if [ -f "$script" ]; then
+    echo $message
+    if [ -x "$script" ]; then
+      "$script"
+    else
+      cp "$script" "$at_build_dir"/autorun-$name
+    fi
+    chmod 755 "$at_build_dir"/autorun-$name
+    push_script $name
+    return 0
+  else
+    echo Not installing step: $message "($name:$script)"
+    return 1
+  fi
+}
 for step in "${steps[@]}"; do
   script=${step%%:*}
   message=${step#*:}
@@ -235,10 +251,12 @@ for step in "${steps[@]}"; do
     echo $message
     ${script#-}
   else
-    if [ -e "$at_lib_release"/mkinit-$script ]; then
-      echo $message
-      "$at_lib_release"/mkinit-$script
-      push_script $script
+    if [[ -v at_local_release_dir ]] \
+      && run-script "$script" "$at_local_release_dir"/mkinit-$script "$message"
+      then
+      :
+    elif run-script "$script" "$at_lib_release"/mkinit-$script "$message"; then
+      :
     else
       echo Not installing step: $message
     fi

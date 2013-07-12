@@ -1,0 +1,63 @@
+#!/bin/sh
+
+set -ex
+
+#file=/cdrom/atwan.preseed preseed-md5=...
+
+echo Installing preseed to "$at_build_dir"/atwan.preseed
+
+"$at_lib_release"/autoinstall-preseed.options  >"$at_build_dir"/atwan.preseed
+"$at_lib_release"/autoinstall-preseed.partman >>"$at_build_dir"/atwan.preseed
+
+#echo Appending kickstart pre and post script sections.
+# This first command is run as early as possible, just after
+# preseeding is read.
+#d-i preseed/early_command string anna-install some-udeb
+# This command is run immediately before the partitioner starts. It may be
+# useful to apply dynamic partitioner preseeding that depends on the state
+# of the disks (which may not be visible when preseed/early_command runs).
+#d-i partman/early_command \
+#       string debconf-set partman-auto/disk "$(list-devices disk | head -n1)"
+# This command is run just before the install finishes, but when there is
+# still a usable /target directory. You can chroot to /target and use it
+# directly, or use the apt-install and in-target commands to easily install
+# packages and run commands in the target system.
+#d-i preseed/late_command string apt-install zsh; in-target chsh -s /bin/zsh
+#
+#for section in pre post; do
+#  if [ $(ls -1 "$at_meta_dir"/ks.$section/ 2>/dev/null | wc -l) -ge 1 ]; then
+#    for file in "$at_meta_dir"/ks.$section/*; do
+#      if [ "$file" != "${file%.nochroot}" ]; then
+#	echo %$section --nochroot
+#      else
+#	echo %$section
+#      fi
+#      cat "$file"
+#      echo %end
+#    done
+#  fi
+#done >>"$at_build_dir"/ks.cfg
+
+for section in early late; do
+  if [ $(ls -1 "$at_meta_dir"/preseed.$section/ 2>/dev/null | wc -l) -ge 1 ]; then
+    unset string
+    for file in "$at_meta_dir"/preseed.$section/*; do
+      string="$string$(tr -d \\n < "$file");"
+    done
+    echo d-i preseed/${section}_command string "$string"
+  fi
+done >>"$at_build_dir"/atwan.preseed
+
+echo Updating isolinux.
+chmod +w "$at_build_dir"/isolinux
+prepend=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+# netcfg/choose_interface=eth0 hostname=x domain=x 
+
+sed <"$at_build_dir"/isolinux/txt.cfg >"$prepend" \
+'/\(menu \)\?default/d;
+s/^label.*/label atwan/;
+s/menu label.*/menu label Automatic gold image (WIPES ALL DATA)/;
+s/append/& language=C country=US locale=C keymap=us hostname=localhost domain= file=\/cdrom\/atwan.preseed/;' 
+sed "1r $prepend" -i "$at_build_dir"/isolinux/txt.cfg
+rm -f "$prepend"
+chmod -w "$at_build_dir"/isolinux "$at_build_dir"/isolinux/isolinux.cfg

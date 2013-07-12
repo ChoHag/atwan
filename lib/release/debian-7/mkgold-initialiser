@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+cp "$at_lib"/initialiser-cron "$at_build_dir"/atwan-initialiser
+chmod 755 "$at_build_dir"/atwan-initialiser
+
+cat <<EOF >"$at_meta_dir"/preseed.late/initialiser
+cp /cdrom/atwan-initialiser /target/root/atwan-initialiser;
+echo '* * * * *' root /root/atwan-initialiser >/target/etc/cron.d/atwan-initialiser
+EOF

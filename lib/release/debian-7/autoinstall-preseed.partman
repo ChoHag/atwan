@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+# Well this is nasty.
+# partman-base's postinst script runs partman, which it has installed into /bin
+# Install a script in /sbin, which is before /bin in $PATH, which will be
+# called instead of the real partman.
+#  * The cd must have an entry in fstab and it must be /media/cdrom or the
+#    installer can't continue.
+#  * sfdisk needs -D or grub-probe can't detect ext2 on /boot.
+#  * grub-installer/bootdev can't be (hd0) so must be set when the device is
+#    known.
+cp "$at_lib_release"/bootloader-fakepartman "$at_meta_dir"/preseed.early/fakepartman
+
+# But grub-installer/bootdev is not 'seen' if set by debconf-set and the
+# question gets asked. Include this in the pressed file so that debconf marks
+# it as seen.
+echo d-i grub-installer/bootdev string foo

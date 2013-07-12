@@ -1,0 +1,40 @@
+#!/bin/sh
+
+cat <<EOIF >>/etc/network/interfaces
+
+auto eth0
+iface eth0 inet static
+  address $at_ip
+  netmask $at_mask
+  gateway $at_gateway
+EOIF
+
+sed "s/\\(10.0.1.1 *\\)localhost/\\1$at_fqdn $at_hostname" -i /etc/hosts
+
+echo $at_hostname >/etc/hostname
+
+hostname $at_hostname
+
+pkill getty
+
+/etc/init.d/rsyslog restart
+
+echo search $at_domain > /etc/resolv.conf
+for ns in $at_dns; do
+  echo nameserver $ns
+done >> /etc/resolv.conf
+
+if [ "$at_proxy" ]; then
+  (
+    echo http_proxy=\""$at_proxy"\"
+    echo https_proxy=\""$at_proxy"\"
+    echo ftp_proxy=\""$at_proxy"\"
+  ) >> /etc/environment
+
+  (
+    echo "Acquire::http { Proxy \"$at_proxy\"; };"
+    echo "Acquire::ftp { Proxy \"$at_proxy\"; };"
+  ) >> /etc/apt/apt.conf.d/proxy
+fi
+
+ifup eth0

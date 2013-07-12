@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set  -e
+
+line="$at_repository_url $at_repository_suite main"
+line="$line${at_repository_contrib:+ contrib}"
+line="$line${at_repository_nonfree:+ non-free}"
+echo "deb $line" > /etc/apt/sources.list
+if [ "$at_repository_sources" ]; then
+  echo "deb-src $line" >>/etc/apt/sources.list
+fi
+
+apt-get update
