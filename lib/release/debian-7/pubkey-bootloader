@@ -1,0 +1,3 @@
+mkdir /target/root/.gnupg;
+chmod 700 /target/root/.gnupg;
+tar xf /cdrom/gpg.tar -C /target/root/.gnupg

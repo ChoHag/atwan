@@ -4,8 +4,8 @@ set -e
 
 echo Installing kickstart to "$at_build_dir"/ks.cfg
 
-"$at_lib_release"/autoinstall-kickstart.options   >"$at_build_dir"/ks.cfg
-"$at_lib_release"/autoinstall-kickstart.packages >>"$at_build_dir"/ks.cfg
+"$at_lib_release"/bootloader-kickstart.options   >"$at_build_dir"/ks.cfg
+"$at_lib_release"/bootloader-kickstart.packages >>"$at_build_dir"/ks.cfg
 
 echo Appending kickstart pre and post script sections.
 

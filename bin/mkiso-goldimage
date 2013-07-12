@@ -11,6 +11,7 @@ source "$at_bin"/atwan.lib
 
 unset at_force at_work_dir at_cache_dir
 unset at_out_file at_release
+unset at_pubkey
 export at_secret=secret
 
 usage() {
@@ -19,6 +20,7 @@ cat <<EOF
     mkiso-goldimage [-f] [-w <work dir>] [-c <cache file>]
       [-o <output>] [-s <root password>]
       -r <release> -u <installer url>
+      [-p <public key id>]
 
   Options:
     -f: Overwrite old image if it exists (force)
@@ -35,10 +37,11 @@ cat <<EOF
     -r: OS release to create a gold image for
 	See $at_lib/releases for a list of available releases.
 	This MUST MATCH the release used to create initialiser iso images.
+    -p: GPG key id to export to the gold image root user's public keyring.
 EOF
 }
 
-while getopts 'fw:c:o:r:s:' arg; do
+while getopts 'fw:c:o:r:s:p:' arg; do
   case $arg in
     f) export at_force=1 ;;
     w) export at_work_dir=$OPTARG ;;
@@ -46,6 +49,7 @@ while getopts 'fw:c:o:r:s:' arg; do
     o) export at_out_file=$OPTARG ;;
     r) export at_release=$OPTARG ;;
     s) export at_secret=$OPTARG ;;
+    p) export at_pubkey=$OPTARG ;;
     ?)
       usage
       exit 1
@@ -64,19 +68,20 @@ steps=(
   "prepare:     Preparing build directory."
   "extract:     Extracting $at_name image to $at_build_dir."
   "initialiser: Attaching initialiser script."
+  "-pubkey:     Building root's GPG directory."
   "bootloader:  Adding automatic option to bootloader."
 )
 
-for step in "${steps[@]}"; do
-  script=${step%%:*}
-  message=${step#*:}
-  if [ -e "$at_lib_release"/mkgold-$script ]; then
-    echo $message
-    "$at_lib_release"/mkgold-$script
-  else
-    echo Skipping step: $message
-  fi
-done
+pubkey() {
+  gpgdir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+  gpg --export -a $at_pubkey | gpg --import --homedir "$gpgdir"
+  rm -f "$gpgdir"/*~
+  tar cf "$at_build_dir"/gpg.tar --numeric-owner --owner=0 --group=0 -C "$gpgdir" .
+  rm -fr "$gpgdir"
+  find_script gold 0 pubkey "Installing GPG directory."
+}
+
+run_steps gold
 
 append_readme gold
 

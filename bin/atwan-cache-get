@@ -25,7 +25,6 @@ set -e
 
 name=$1
 shift
-echo .$name.
 if eval [ -z '"$name"' -o -z \"\$${name}_url\" ]; then
   echo Download file not specified or invalid: $name. >&2
   exit 1

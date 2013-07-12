@@ -4,8 +4,8 @@ set -e
 
 echo Installing preseed to "$at_build_dir"/atwan.preseed
 
-"$at_lib_release"/autoinstall-preseed.options  >"$at_build_dir"/atwan.preseed
-"$at_lib_release"/autoinstall-preseed.partman >>"$at_build_dir"/atwan.preseed
+"$at_lib_release"/bootloader-preseed.options  >"$at_build_dir"/atwan.preseed
+"$at_lib_release"/bootloader-preseed.partman >>"$at_build_dir"/atwan.preseed
 
 for section in early late; do
   if [ $(ls -1 "$at_meta_dir"/preseed.$section/ 2>/dev/null | wc -l) -ge 1 ]; then

@@ -23,10 +23,22 @@ check_arguments() {
   if [[ -v at_local_release_dir && -e "$at_local_release_dir"/meta ]]; then
     read_meta "$at_local_release_dir"/meta
   fi
+
+  if [[ ! -v at_pubkey ]]; then
+    export at_pubkey=$(gpg --list-secret-keys --with-colons|awk -F: '$1=="sec"{print$5}')
+  else
+    if ! gpg --list-secret-keys "$at_pubkey" >/dev/null; then
+      echo Cannot find secret key for "$at_pubkey". >&2
+      exit 1
+    elif ! gpg --list-keys "$at_pubkey" >/dev/null; then
+      echo Cannot find public key for "$at_pubkey". >&2
+      exit 1
+    fi
+  fi
 }
 
 read_meta() {
-  metafile=$1
+  local metafile=$1
   while IFS== read var val; do
     if [[ $var =~ ^[[:space:]]*# ]]; then
       continue
@@ -44,8 +56,67 @@ read_meta() {
   done < "$metafile"
 }
 
+push_script() {
+  scripts=("${scripts[@]}" "$@")
+}
+
+run_script() {
+  local name=$1
+  local script=$2
+  local message=$3
+  if [ -f "$script" ]; then
+    echo $message
+    if [ -x "$script" ]; then
+      "$script"
+    else
+      cp "$script" "$at_build_dir"/autorun-$name
+    fi
+    push_script $name
+    return 0
+  else
+    return 1
+  fi
+}
+
+find_script() {
+  local type=$1
+  local fatal=$2
+  local script=$3
+  local message=$4
+  if [[ -v at_local_release_dir ]] \
+    && run_script "$script" "$at_local_release_dir"/mk$type-$script "$message"
+    then
+    :
+  elif run_script "$script" "$at_lib_release"/mk$type-$script "$message"; then
+    :
+  else
+    if [[ "$fatal" != 0 ]]; then
+      echo Skipping step: $message
+    else
+      echo Script not found: $script \($message\) >&2
+      echo Aborting.
+      exit 1
+    fi
+  fi
+}
+
+run_steps() {
+  local type=$1
+
+  for step in "${steps[@]}"; do
+    script=${step%%:*}
+    message=${step#*:}
+    if [ "$script" != "${script#-}" ]; then
+      echo $message
+      ${script#-}
+    else
+      find_script "$type" 0 "$script" "$message"
+    fi
+  done
+}
+
 append_readme() {
-  type=$1
+  local type=$1
 
   if [ -z "$type" ]; then
     echo append_readme called without type. >&2
@@ -66,7 +137,7 @@ append_readme() {
 }
 
 create_image() {
-  type=$1
+  local type=$1
 
   if [ -z "$type" ]; then
     echo create_image called without type. >&2

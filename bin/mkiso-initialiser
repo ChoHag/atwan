@@ -167,11 +167,6 @@ steps=(
 )
 # proxy, secret
 
-unset scripts
-push_script() {
-  scripts=("${scripts[@]}" "$@")
-}
-
 variables() {
   (
     for var in ${!at_*}; do
@@ -225,43 +220,8 @@ bootstrap() {
 }
 
 echo Setting up new host\'s initialiser:
-run-script() {
-  name=$1
-  script=$2
-  message=$3
-  if [ -f "$script" ]; then
-    echo $message
-    if [ -x "$script" ]; then
-      "$script"
-    else
-      cp "$script" "$at_build_dir"/autorun-$name
-    fi
-    chmod 755 "$at_build_dir"/autorun-$name
-    push_script $name
-    return 0
-  else
-    echo Not installing step: $message "($name:$script)"
-    return 1
-  fi
-}
-for step in "${steps[@]}"; do
-  script=${step%%:*}
-  message=${step#*:}
-  if [ "$script" != "${script#-}" ]; then
-    echo $message
-    ${script#-}
-  else
-    if [[ -v at_local_release_dir ]] \
-      && run-script "$script" "$at_local_release_dir"/mkinit-$script "$message"
-      then
-      :
-    elif run-script "$script" "$at_lib_release"/mkinit-$script "$message"; then
-      :
-    else
-      echo Not installing step: $message
-    fi
-  fi
-done
+unset scripts
+run_steps init
 echo Host initialiser build complete.
 
 cp "$at_lib"/autorun "$at_build_dir"/autorun
