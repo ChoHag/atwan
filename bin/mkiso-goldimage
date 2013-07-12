@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
   echo "$(dirname $0)"/atwan.installdirs does not exist. Aborting. >&2

@@ -12,8 +12,5 @@ EOF
 
 cat <<EOF >"$at_meta_dir"/ks.post/initialiser-2
 #!/bin/sh
-(
-  crontab -l 2>/dev/null
-  echo '* * * * *' /root/atwan-initialiser
-) | crontab
+echo '* * * * *' root /root/atwan-initialiser > /etc/cron.d/atwan-initialiser
 EOF

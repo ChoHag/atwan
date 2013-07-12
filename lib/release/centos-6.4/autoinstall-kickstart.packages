@@ -9,7 +9,6 @@ e2fsprogs
 lvm2
 grub
 cronie
-cronie-anacron
 crontabs
 postfix
 -cyrus-sasl

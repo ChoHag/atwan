@@ -1,2 +1,2 @@
 #!/bin/sh
-"$at_bin"/atwan-cache-get at_debian_installer "$at_lib_release"/mkgold-extract.cached
+"$at_bin"/atwan-cache-get at_installer "$at_lib_release"/mkgold-extract.cached

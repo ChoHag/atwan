@@ -4,7 +4,7 @@ cat <<EOF
 install
 text
 cdrom
-shutdown
+poweroff
 
 lang en_US.UTF-8
 keyboard us
