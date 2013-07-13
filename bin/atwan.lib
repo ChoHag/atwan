@@ -28,10 +28,17 @@ check_arguments() {
     export at_pubkey=$(gpg --list-secret-keys --with-colons|awk -F: '$1=="sec"{print$5}')
   else
     if ! gpg --list-secret-keys "$at_pubkey" >/dev/null; then
-      echo Cannot find secret key for "$at_pubkey". >&2
+      echo WARNING: Cannot find signing key for "$at_pubkey". >&2
+    fi
+    if ! gpg --list-keys "$at_pubkey" >/dev/null; then
+      echo Cannot find public key "$at_pubkey". >&2
       exit 1
-    elif ! gpg --list-keys "$at_pubkey" >/dev/null; then
-      echo Cannot find public key for "$at_pubkey". >&2
+    fi
+  fi
+
+  if [[ -v at_signkey ]]; then
+    if ! gpg --list-secret-keys "$at_signkey" >/dev/null; then
+      echo Cannot find signing key "$at_signkey". >&2
       exit 1
     fi
   fi
@@ -90,7 +97,7 @@ find_script() {
   elif run_script "$script" "$at_lib_release"/mk$type-$script "$message"; then
     :
   else
-    if [[ "$fatal" != 0 ]]; then
+    if [[ "$fatal" == 0 ]]; then
       echo Skipping step: $message
     else
       echo Script not found: $script \($message\) >&2

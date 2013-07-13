@@ -20,7 +20,7 @@ cat <<EOF
     mkiso-goldimage [-f] [-w <work dir>] [-c <cache file>]
       [-o <output>] [-s <root password>]
       -r <release> -u <installer url>
-      [-p <public key id>]
+      [-k <public key id>]
 
   Options:
     -f: Overwrite old image if it exists (force)
@@ -37,11 +37,11 @@ cat <<EOF
     -r: OS release to create a gold image for
 	See $at_lib/releases for a list of available releases.
 	This MUST MATCH the release used to create initialiser iso images.
-    -p: GPG key id to export to the gold image root user's public keyring.
+    -k: GPG key id to export to the gold image root user's public keyring.
 EOF
 }
 
-while getopts 'fw:c:o:r:s:p:' arg; do
+while getopts 'fw:c:o:r:s:k:' arg; do
   case $arg in
     f) export at_force=1 ;;
     w) export at_work_dir=$OPTARG ;;
@@ -49,7 +49,7 @@ while getopts 'fw:c:o:r:s:p:' arg; do
     o) export at_out_file=$OPTARG ;;
     r) export at_release=$OPTARG ;;
     s) export at_secret=$OPTARG ;;
-    p) export at_pubkey=$OPTARG ;;
+    k) export at_pubkey=$OPTARG ;;
     ?)
       usage
       exit 1
@@ -78,7 +78,7 @@ pubkey() {
   rm -f "$gpgdir"/*~
   tar cf "$at_build_dir"/gpg.tar --numeric-owner --owner=0 --group=0 -C "$gpgdir" .
   rm -fr "$gpgdir"
-  find_script gold 0 pubkey "Installing GPG directory."
+  find_script gold 1 pubkey "Installing GPG directory."
 }
 
 run_steps gold

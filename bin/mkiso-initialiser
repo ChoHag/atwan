@@ -13,7 +13,7 @@ unset at_force at_work_dir at_cache_dir at_out_file
 unset at_bootstrap at_bootstrap_pm at_bootstrap_enc
 unset at_puppet_dir at_proxy at_release at_secret
 unset at_dhcp at_hostname at_fqdn at_ip at_gateway at_dns
-unset at_local_release_dir
+unset at_local_release_dir at_signkey
 export at_mask=255.255.255.0
 
 usage() {
@@ -24,6 +24,7 @@ cat <<EOF
       -r <release> [-s <root password>]
       ( -D | -n <fqdn> -i <ip> [-m <netmask>] [-g <gateway>] ) -d <dns>
       [-l <local release dir>]
+      [-k <signing key id>]
 
   Options:
     -f: Overwrite old image if it exists (force)
@@ -59,10 +60,11 @@ cat <<EOF
 	Lookup from this machine's /etc/resolv.conf is not implemented.
     -l: Local release dir.
 	Watch this space.
+    -k: GPG key id to use to sign the initialiser iso.
 EOF
 }
 
-while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:' arg; do
+while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:k:' arg; do
   case $arg in
     f) export at_force=1 ;;
     w) export at_work_dir=$OPTARG ;;
@@ -81,6 +83,7 @@ while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:' arg; do
     g) export at_gateway=$OPTARG ;;
     d) export at_dns=$OPTARG ;;
     l) export at_local_release_dir=$OPTARG ;;
+    k) export at_signkey=$OPTARG ;;
     ?)
       usage
       exit 1
@@ -230,9 +233,22 @@ for script in ${scripts[@]}; do
   chmod 755 "$at_build_dir"/autorun-$script
   echo '"$at_top"'/autorun-$script
 done >> "$at_build_dir"/autorun
+echo \# noise: $( dd if=/dev/random bs=1 count=128 | (shasum||md5sum) )
 chmod 755 "$at_build_dir"/autorun
 
 append_readme init
+
+list=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+for file in "$at_build_dir"/*; do
+  if [ -f "$file" ]; then
+    gpg --sign ${at_signkey:+--default-key "$at_signkey"} "$file"
+    echo "${file##$at_build_dir}" >> "$list"
+  else
+    echo WARNING: Non-file found in build dir: "${file##$at_build_dir}" >&2
+  fi
+done
+mv "$list" "$at_build_dir"/cd.list
+gpg --sign ${at_signkey:+--default-key "$at_signkey"} "$at_build_dir"/cd.list
 
 create_image init
 

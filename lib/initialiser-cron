@@ -14,12 +14,40 @@ echo $$ >/var/lock/initialise.lock
 trap 'rm -f /var/lock/initialise.lock' EXIT
 
 mount -o ro /dev/cdrom /mnt 2>/dev/null || exit 3
+trap 'umount /mnt' EXIT
 
-if [ -e /mnt/autorun ]; then
-  ### Check for signature
-  export PATH=/sbin:/bin:/usr/sbin:/usr/bin
-  /mnt/autorun
-  umount /mnt
-else
-  umount /mnt
+failgpg() {
+  echo The signature of /mnt/"$1" could not be verified. >&2
+  fail=1
+}
+
+if [ ! -e /mnt/cd.list -o ! -e /mnt/cd.list.gpg ]; then
+  exit 0
 fi
+
+if ! gpg --verify /mnt/cd.list.gpg; then
+  failgpg /mnt/cd.list
+  exit 1
+fi
+
+unset fail
+unset got_autorun
+
+while read file; do
+  if [ "${file##*/}" = "autorun" ]; then
+    got_autorun=1
+  fi
+  gpg --verify /mnt/"$file".gpg || failgpg /mnt/"$file"
+done </mnt/cd.list
+
+if [ "$fail" ]; then
+  exit 1
+fi
+
+if [ -z "$got_autorun" ]; then
+  echo /mnt/autorun not found. >&2
+  exit 1
+fi
+
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+exec /mnt/autorun
