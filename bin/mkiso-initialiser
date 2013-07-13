@@ -171,9 +171,13 @@ steps=(
 # proxy, secret
 
 variables() {
+  ignore=(at_bin at_lib at_lib_release at_work_dir at_build_dir at_cache_dir)
   (
     for var in ${!at_*}; do
-	eval echo export $var=\\\"\$$var\\\"
+      if [[ ${ignore[@]} =~ $var ]]; then
+	continue
+      fi
+      eval echo export $var=\\\"\$$var\\\"
       true
     done
   ) > "$at_build_dir"/autorun-variables
@@ -185,41 +189,17 @@ secret() {
     return
   fi
 
-  if [ ! -e "$at_lib_release"/mkinit-secret ]; then
-    echo Do not know how to change root password for $at_release. >&2
-    exit 1
-  fi
-
-  echo Changing root password.
-  "$at_lib_release"/mkinit-secret
+  find_script init 1 secret "Updating host root's password."
   push_script secret
 }
-
 
 bootstrap() {
   if [ -z "$at_bootstrap" ]; then
     echo No. Bootstrap not requested.
     return
   fi
-  echo Installing bootstrap functions.
 
-  puppet_tmpdir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
-  rsync -a "$at_puppet_dir"/ "$puppet_tmpdir"/puppet/
-  if [ "$at_bootstrap" = pm ]; then
-    if [ -e "$puppet_tmpdir"/puppet/bootstrap-enc ]; then
-      echo bootstrap-enc already exists in $at_puppet_dir. >&2
-      echo Using it instead. >&2
-    else
-      cp "$at_lib"/mkinit-bootstrap-enc "$puppet_tmpdir"/puppet/bootstrap-enc
-    fi
-    chmod 755 "$puppet_tmpdir"/puppet/bootstrap-enc
-  fi
-
-  tar czf "$at_build_dir"/puppet.tgz -C "$puppet_tmpdir" puppet
-  chmod +rw -R "$puppet_tmpdir"
-  rm -fr "$puppet_tmpdir"
-  cp "$at_lib"/autorun-bootstrap "$at_build_dir"/autorun-bootstrap
-  push_script bootstrap
+  find_script init 1 bootstrap "Installing bootstrap functions."
 }
 
 echo Setting up new host\'s initialiser:

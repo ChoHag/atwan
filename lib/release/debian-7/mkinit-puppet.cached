@@ -5,8 +5,10 @@ cp "$at_cache_file" "$at_build_dir"/puppetlabs.deb
 
 echo '#!/bin/sh' > "$at_build_dir"/autorun-puppet
 echo 'dpkg -i "$at_top"/puppetlabs.deb' >> "$at_build_dir"/autorun-puppet
+echo 'apt-get update' >> "$at_build_dir"/autorun-puppet
 echo 'apt-get --no-install-recommends -y install puppet' >> "$at_build_dir"/autorun-puppet
 if [ "$at_bootstrap" ]; then
+  echo '"$at_top"/autorun-bootstrap'
   echo 'puppet apply --verbose --node_terminus=exec --external_nodes=/etc/puppet/bootstrap-enc /etc/puppet/manifests/site.pp'
 else
   echo 'puppet agent --verbose --waitforcert 15'
