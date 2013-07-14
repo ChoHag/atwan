@@ -44,10 +44,18 @@ if [ "$fail" ]; then
   exit 1
 fi
 
+# This checks not only that it exists, but that it's signed too.
 if [ -z "$got_autorun" ]; then
   echo /mnt/autorun not found. >&2
   exit 1
 fi
 
+if [ ! -x /mnt/autorun ]; then
+  echo /mnt/autorun is not executable. >&2
+  exit 1
+fi
+
 export PATH=/sbin:/bin:/usr/sbin:/usr/bin
-exec /mnt/autorun
+/mnt/autorun
+
+echo /mnt/autorun completed. Unmounting /mnt.
