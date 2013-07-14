@@ -60,6 +60,10 @@ shift $(expr $OPTIND - 1)
 
 check_arguments
 
+if [ -z "$at_out_file" ]; then
+  export at_out_file=goldimage-installer-"$at_release".iso
+fi
+
 export at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
 export at_meta_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
 trap 'chmod +rw -R "$at_build_dir" "$at_meta_dir" && rm -fr "$at_build_dir" "$at_meta_dir"' EXIT

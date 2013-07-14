@@ -9,7 +9,7 @@ iface eth0 inet static
   gateway $at_gateway
 EOIF
 
-sed "s/\\(10.0.1.1 *\\)localhost/\\1$at_fqdn $at_hostname" -i /etc/hosts
+sed "s/\\(127\\.0\\.1\\.1[[:space:]]\\+\\)localhost/\\1$at_fqdn $at_hostname/" -i /etc/hosts
 
 echo $at_hostname >/etc/hostname
 

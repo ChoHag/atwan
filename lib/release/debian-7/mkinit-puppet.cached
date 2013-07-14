@@ -9,7 +9,12 @@ echo 'apt-get update' >> "$at_build_dir"/autorun-puppet
 echo 'apt-get --no-install-recommends -y install puppet' >> "$at_build_dir"/autorun-puppet
 if [ "$at_bootstrap" ]; then
   echo '"$at_top"/autorun-bootstrap'
-  echo 'puppet apply --verbose --node_terminus=exec --external_nodes=/etc/puppet/bootstrap-enc /etc/puppet/manifests/site.pp'
+  if [ "$at_bootstrap" = pm ]; then
+    enc=/etc/puppet/bootstrap-enc
+  elif [ "$at_bootstrap" = enc ]; then
+    enc=/etc/puppet/enc
+  fi
+  echo "puppet apply --verbose --node_terminus=exec --external_nodes=$enc /etc/puppet/manifests/site.pp"
 else
   echo 'puppet agent --verbose --waitforcert 15'
 fi >> "$at_build_dir"/autorun-puppet
