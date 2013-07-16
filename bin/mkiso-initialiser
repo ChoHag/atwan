@@ -213,7 +213,8 @@ for script in ${scripts[@]}; do
   chmod 755 "$at_build_dir"/autorun-$script
   echo '"$at_top"'/autorun-$script
 done >> "$at_build_dir"/autorun
-echo \# noise: $( dd if=/dev/random bs=1 count=128 | (shasum||md5sum) )
+echo Generating some random noise.
+echo \# noise: $( dd if=/dev/random bs=1 count=128 | (shasum||md5sum) ) >> "$at_build_dir"/autorun
 chmod 755 "$at_build_dir"/autorun
 
 append_readme init
