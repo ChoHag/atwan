@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 cat <<ENC
+parameters:
+  bootstrap_puppetmaster: true
 classes:
   puppet::master:
   openssh::server:
