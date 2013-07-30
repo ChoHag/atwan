@@ -18,7 +18,7 @@
 # download is not performed.
 #
 # If the file must be downloaded, it will be saved into $at_cache_file. If
-# $at_cache_* are not set, it will be saved into $at_workdir (probably /tmp)
+# $at_cache_* are not set, it will be saved into $at_work_dir (probably /tmp)
 # and then deleted when the task is completed.
 
 set -e
@@ -47,7 +47,7 @@ if [ -z "$at_cache_file" ]; then
   if [ "$at_cache_dir" ]; then
     at_cache_file="$at_cache_dir"/"$at_source_file"
   else
-    at_cache_file="$(mktemp ${at_workdir:+--tmpdir=$at_workdir})"
+    at_cache_file="$(mktemp ${at_work_dir:+--tmpdir=$at_work_dir})"
     trap 'rm -f "$at_cache_file"' EXIT
   fi
 fi
