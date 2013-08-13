@@ -1,0 +1,6 @@
+#!/bin/cat
+environment: production
+parameters:
+  bootstrap_puppetmaster: true
+classes:
+  puppet::master:

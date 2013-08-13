@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
@@ -7,24 +6,23 @@ if [ ! -e "$(dirname $0)"/atwan.installdirs ]; then
   exit 1
 fi
 source "$(dirname $0)"/atwan.installdirs
-source "$at_bin"/atwan.lib
+source "$at_lib"/atwan.lib
 
-unset at_force at_work_dir at_cache_dir at_out_file
-unset at_bootstrap at_bootstrap_pm at_bootstrap_enc
-unset at_puppet_dir at_proxy at_release at_secret
+unset at_force at_work_dir at_cache_dir at_out_file at_release
+unset at_search_path at_search_path_prepend at_search_path_replace
+unset at_bootstrap at_bootstrap_basic at_bootstrap_extended
+unset at_etc_dir at_proxy at_secret
 unset at_dhcp at_hostname at_fqdn at_ip at_gateway at_dns
-unset at_local_release_dir at_signkey
+unset at_signkey
 export at_mask=255.255.255.0
 
 usage() {
 cat <<EOF
   Usage:
-    mkiso-initialiser [-f] [-w <work dir>] [-c <cache dir>]
-      [-o <output>] [ (-b|-B) -p <puppet dir> ] [ -h <http proxy> ]
-      -r <release> [-s <root password>]
+    mkiso-initialiser [-f] [-w <work dir>] [-c <cache dir>] [-o <output>]
+      -r <release> [(-p|-P) <search path>] [-s <root password>]
+      [ (-b|-B) -t <etc dir> ] [ -h <http proxy> ] [-k <signing key id>]
       ( -D | -n <fqdn> -i <ip> [-m <netmask>] [-g <gateway>] ) -d <dns>
-      [-l <local release dir>]
-      [-k <signing key id>]
 
   Options:
     -f: Overwrite old image if it exists (force)
@@ -35,16 +33,21 @@ cat <<EOF
 	it is used instead.
     -o: Output filename
         Default: Based on the template ./initialiser--(<fqdn>|DHCP).iso
-    -b: Create a puppetmaster bootstrap iso.
-    -B: Create a bootstrap iso using the node's own ENC entry.
-	Will not work with DHCP nodes.
-    -p: Directory which will be copied to /etc/puppet on the bootstrap server.
-    -h: Host's HTTP proxy.
-    -r: OS release to create gold image of.
-	See $at_lib/releases for a list of available releases.
-	This MUST MATCH the release used to create the gold image this
-	initialiser iso will be used on.
+    -r: Gold Image's OS release to create an initialiser for.
+	See $at_lib/release for a list of available releases.  This MUST MATCH
+	the release used to create the gold image this initialiser iso will be
+	used on.
+    -p: :-seperated list of paths to prepend to the release script search path.
+    -P: :-seperated list of paths to use instead of the default search path.
+	Relative paths are appended to the release top directory
+	($at_lib/release/\$release)
     -s: Host's new root password.
+    -b: Create a basic bootstrap iso.
+    -B: Create an extended bootstrap iso; use the CMDB installed into /etc.
+    -t: A directory which will be stored in a tar archive and extracted to
+        /etc on the bootstrap server.
+    -h: Host's HTTP proxy.
+    -k: GPG key id to use to sign the initialiser iso.
     -D: DHCP-configured host.
 	Unimplemented
     -n: Named host.
@@ -58,32 +61,30 @@ cat <<EOF
     -d: Host's DNS.
 	A white-space separated list. Use quotes.
 	Lookup from this machine's /etc/resolv.conf is not implemented.
-    -l: Local release dir.
-	Watch this space.
-    -k: GPG key id to use to sign the initialiser iso.
 EOF
 }
 
-while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:k:' arg; do
+while getopts 'fw:c:o:r:p:P:bBt:h:s:k:Dn:i:m:g:d:' arg; do
   case $arg in
     f) export at_force=1 ;;
     w) export at_work_dir=$OPTARG ;;
     c) export at_cache_dir=$OPTARG ;;
     o) export at_out_file=$OPTARG ;;
-    b) export at_bootstrap_pm=1 ;;
-    B) export at_bootstrap_enc=1 ;;
-    p) export at_puppet_dir=$OPTARG ;;
-    h) export at_proxy=$OPTARG ;;
     r) export at_release=$OPTARG ;;
+    p) export at_search_path_prepend=$OPTARG ;;
+    P) export at_search_path_replace=$OPTARG ;;
+    b) export at_bootstrap_basic=1 ;;
+    B) export at_bootstrap_extended=1 ;;
+    t) export at_etc_dir=$OPTARG ;;
+    h) export at_proxy=$OPTARG ;;
     s) export at_secret=$OPTARG ;;
+    k) export at_signkey=$OPTARG ;;
     D) export at_dhcp=1 ;;
     n) export at_hostname=$OPTARG ;;
     i) export at_ip=$OPTARG ;;
     m) export at_mask=$OPTARG ;;
     g) export at_gateway=$OPTARG ;;
     d) export at_dns=$OPTARG ;;
-    l) export at_local_release_dir=$OPTARG ;;
-    k) export at_signkey=$OPTARG ;;
     ?)
       usage
       exit 1
@@ -92,21 +93,22 @@ while getopts 'fw:c:o:bBp:h:r:s:Dn:i:m:g:d:l:k:' arg; do
 done
 shift $(expr $OPTIND - 1)
 
-check_arguments
+check_common_arguments
 
-if [ "$at_bootstrap_pm" -a "$at_bootstrap_enc" ]; then
-  echo 'Cannot make a puppetmaster (-b) and an ENC (-B) bootstrap iso' >&2
+if [ "$at_bootstrap_basic" -a "$at_bootstrap_extended" ]; then
+  echo 'Basic (-b) and extended (-B) bootstrap ISOs are mutually incompatible.' >&2
   exit 1
-elif [ "$at_bootstrap_pm" ]; then
-  export at_bootstrap=pm
-  echo Selected a puppetmaster bootstrap iso.
-elif [ "$at_bootstrap_enc" ]; then
-  export at_bootstrap=enc
-  echo Selected an ENC bootstrap iso.
+elif [ "$at_bootstrap_basic" ]; then
+  export at_bootstrap=basic
+  echo Selected a basic bootstrap iso.
+elif [ "$at_bootstrap_extended" ]; then
+  export at_bootstrap=extended
+  echo Selected an extended bootstrap iso.
 fi
+
 if [ "$at_bootstrap" ]; then
-  if [ -z "$at_puppet_dir" -o ! -d "$at_puppet_dir" ]; then
-    echo 'Need a puppet_dir (-p) to build a bootstrap iso.' >&2
+  if [ -z "$at_etc_dir" -o ! -d "$at_etc_dir" ]; then
+    echo 'Need a directory to tar (-t) to build a bootstrap iso.' >&2
     exit 1
   fi
 fi
@@ -160,18 +162,18 @@ export at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
 trap 'chmod +rw -R "$at_build_dir" && rm -fr "$at_build_dir"' EXIT
 
 steps=(
-  "-variables: Set variables."
-  "stop-initialiser: Stop automatic initialiser (cron)."
-  "-secret:    Set root password?"
-  "-bootstrap: Run bootstrap?"
-  "network:    Configure network and HTTP proxy."
-  "repository: Configure package repository."
-  "puppet:     Install and run puppet."
+  " -variables:  Set variables."
+  "1-stop-initialiser: Stop automatic initialiser (cron)."
+  " -secret:     Set root password?"
+  " -bootstrap:  Run bootstrap?"
+  "0-network:    Configure network and HTTP proxy."
+  "0-repository: Configure package repository."
+  "0-cmdb:       Install and run a CMDB (eg. puppet)."
 )
 # proxy, secret
 
 variables() {
-  ignore=(at_bin at_lib at_lib_release at_work_dir at_build_dir at_cache_dir)
+  ignore=(at_bin at_lib at_search_path at_work_dir at_build_dir at_cache_dir)
   (
     for var in ${!at_*}; do
       if [[ ${ignore[@]} =~ $var ]]; then
@@ -184,22 +186,22 @@ variables() {
 }
 
 secret() {
-  if [ -z "$at_secret" ]; then
+  if [[ -z "$at_secret" ]]; then
     echo No. Root password unchanged.
     return
   fi
 
-  find_script init 1 secret "Updating host root's password."
+  run_script init 1 secret "Updating host root's password."
   push_script secret
 }
 
 bootstrap() {
-  if [ -z "$at_bootstrap" ]; then
+  if [[ -z "$at_bootstrap" ]]; then
     echo No. Bootstrap not requested.
     return
   fi
 
-  find_script init 1 bootstrap "Installing bootstrap functions."
+  run_script init 1 bootstrap "Installing bootstrap functions."
 }
 
 echo Setting up new host\'s initialiser:
@@ -214,7 +216,7 @@ for script in ${scripts[@]}; do
   echo '"$at_top"'/autorun-$script
 done >> "$at_build_dir"/autorun
 echo Generating some random noise.
-echo \# noise: $( dd if=/dev/random bs=1 count=128 | (shasum||md5sum) ) >> "$at_build_dir"/autorun
+echo \# noise: $( dd if=/dev/random bs=1 count=32 | (shasum||md5sum) ) >> "$at_build_dir"/autorun
 chmod 755 "$at_build_dir"/autorun
 
 append_readme init

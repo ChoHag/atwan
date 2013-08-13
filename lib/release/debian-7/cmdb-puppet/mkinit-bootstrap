@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+source "$at_lib"/atwan.lib
+
+if [ ! -e "$at_etc_dir"/puppet ]; then
+  echo puppet not found in $at_etc_dir. >&2
+  exit 1
+fi
+
+etc_tmpdir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+trap 'chmod +rw -R "$etc_tmpdir"; rm -fr "$etc_tmpdir"' EXIT
+
+rsync -a "$at_etc_dir"/ "$etc_tmpdir"/etc/
+
+if [[ -e "$etc_tmpdir"/puppet/basic-enc ]]; then
+  echo basic-enc already exists in $at_etc_dir/puppet. >&2
+  echo Using it instead. >&2
+else
+  cp "$(find_file mkinit-basic-enc)" "$etc_tmpdir"/puppet/basic-enc
+fi
+chmod 755 "$etc_tmpdir"/puppet/basic-enc
+
+tar czf "$at_build_dir"/etc.tgz -C "$etc_tmpdir" etc
+
+cp "$(find_file autorun-bootstrap)" "$at_build_dir"/autorun-bootstrap
+chmod 755 "$at_build_dir"/autorun-bootstrap

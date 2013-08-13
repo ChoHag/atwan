@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+source "$at_lib"/atwan.lib
+
+cache_get at_puppetlabs
+if [ "$at_cache_tmp" = 1 ]; then
+  trap 'rm -f "$at_cache_file"' EXIT
+fi
+
+cp "$at_cache_file" "$at_build_dir"/puppetlabs.deb
+
+exec >"$at_build_dir"/autorun-cmdb
+
+cat <<'EOF'
+#!/bin/sh
+dpkg -i "$at_top"/puppetlabs.deb
+apt-get update
+apt-get --no-install-recommends -y install puppet
+EOF
+
+if [[ -v at_bootstrap ]]; then
+  echo '"$at_top"/autorun-bootstrap'
+
+  if [[ "$at_bootstrap" == basic ]]; then
+    enc=/etc/puppet/basic-enc
+  elif [[ "$at_bootstrap" == extended ]]; then
+    enc=/etc/puppet/enc
+  fi
+
+  echo puppet apply --verbose --node_terminus=exec --external_nodes=\""$enc"\" /etc/puppet/manifests/site.pp
+else
+  echo puppet agent --verbose --waitforcert 15
+fi

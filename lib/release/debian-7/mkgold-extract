@@ -1,2 +1,5 @@
-#!/bin/sh
-"$at_bin"/atwan-cache-get at_installer "$at_lib_release"/mkgold-extract.cached
+#!/bin/bash
+set -e
+source "$at_lib"/atwan.lib
+cache_get at_installer
+xorriso -indev "$at_cache_file" -osirrox on -extract / "$at_build_dir"

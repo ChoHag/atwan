@@ -1,0 +1,274 @@
+# vi: ft=sh ts=8 sw=2:
+
+check_common_arguments() {
+  if [[ -v at_work_dir && ! -d "$at_work_dir" ]]; then
+    echo Working directory $at_work_dir does not exist. >&2
+    return 1
+  fi
+
+  if [[ -v at_cache_dir && ! -d "$at_cache_dir" ]]; then
+    echo Cache directory $at_cache_dir does not exist. >&2
+    return 1 
+  fi
+
+  if [[ ! -v at_release ]]; then
+    echo 'No OS release specified.' >&2
+    return 1
+  fi
+
+  at_search_path_default=("$at_lib/release/$at_release" "$at_lib/release" "$at_lib")
+  if [[ -v at_search_path_prepend && -v at_search_path_replace ]]; then
+    echo 'Cannot append to (-p) and replace (-P) the release script search path.' >&2
+    return 1
+  elif [[ -v at_search_path_replace ]]; then
+    unset at_search_path_default
+  fi
+  # Trick bash expansion into splitting into an array on a : character.
+  oIFS=$IFS IFS=:
+  # If _replace is set, the others will be empty and vice versa.
+  at_search_path_a=($at_search_path_replace $at_search_path_prepend "${at_search_path_default[@]}")
+  export at_search_path="${at_search_path_a[*]}"
+  IFS=$oIFS
+
+  release_meta="$at_lib/release/$at_release/meta"
+  if [[ -r "$release_meta" ]] && ! read_meta "$release_meta"; then
+    echo "Cannot find a release description (meta file)." >&2
+    return 1
+  fi
+  while read metafile; do
+    read_meta "$metafile"
+  done < <(find_file --all meta)
+
+  if [[ ! -v at_pubkey ]]; then
+    export at_pubkey=$(gpg --list-secret-keys --with-colons|awk -F: '$1=="sec"{print$5}')
+    if [[ $(echo "$at_pubkey" | wc -l) != 1 ]]; then
+      echo "Don't know which public key to export to the gold image." >&2
+      echo Available secret keys: >&2
+      gpg --list-secret-keys --with-colons \
+	| awk -F: '$1=="sec" {print " * " $5 " " $10}' >&2
+      return 1
+    fi
+  else
+    if ! gpg --list-secret-keys "$at_pubkey" >/dev/null; then
+      echo WARNING: Cannot find signing key for "$at_pubkey". >&2
+    fi
+    if ! gpg --list-keys "$at_pubkey" >/dev/null; then
+      echo Cannot find public key "$at_pubkey". >&2
+      return 1
+    fi
+  fi
+
+  if [[ -v at_signkey ]]; then
+    if ! gpg --list-secret-keys "$at_signkey" >/dev/null; then
+      echo Cannot find signing key "$at_signkey". >&2
+      return 1
+    fi
+  fi
+}
+
+read_meta() {
+  local metafile=$1
+  while IFS== read var val; do
+    if [[ $var =~ ^[[:space:]]*# ]]; then
+      continue
+    fi
+    if [[ "$var" =~ ^[0-9A-Za-z_]+$ ]]; then
+      eval "at_$var=\$val"
+      export at_$var
+    fi
+  done < "$metafile"
+}
+
+run_steps() {
+  local type=$1
+
+  for step in "${steps[@]}"; do
+    name=${step%%:*}
+    message=${step#*:}
+    if [ "$name" != "${name#-}" -o "$name" != "${name# -}" ]; then
+      echo $message
+      ${name#*-}
+    else
+      fatal=${name%%-*}
+      script=${name#*-}
+      if run_script "$type" "$fatal" "$script" "$message"; then
+	push_script $script
+      fi
+    fi
+  done
+}
+
+run_script() {
+  local type=$1
+  local fatal=$2
+  local script=$3
+  local message=$4
+
+  file=$(find_file "mk$type-$script")
+
+  if [[ ! -f "$file" ]]; then
+    if [[ "$fatal" == 1 ]]; then
+      echo Script not found: $script \($message\) >&2
+      echo Aborting.
+      return 1
+    else
+      echo Skipping step: $message
+      return 0
+    fi
+  fi
+
+  echo $message
+  unset r
+  if [[ -x "$file" ]]; then
+    "$file"
+    r=$?
+  else
+    cp "$file" "$at_build_dir"/autorun-$script
+    r=$?
+  fi
+
+  if [[ $r -ne 0 ]]; then
+    if [[ "$fatal" == 1 ]]; then
+      echo Critical script failed. Aborting. >&2
+      exit $r
+    else
+      echo Trivial step failed. Continuing. >&2
+    fi
+  fi
+
+  return $r
+}
+
+find_file() {
+  local all not_found
+  unset all
+  if [[ "$1" = "--all" || "$1" = "-a" ]]; then
+    all=1
+    shift
+  fi
+  not_found=1
+  oIFS=$IFS IFS=:
+  for d in $at_search_path; do
+    IFS=$oIFS # Never mind that this gets repeated
+    if [[ "$d" =~ ^/ ]]; then
+      check="$d/$1"
+    else
+      check="$at_lib/release/$at_release/$d/$1"
+    fi
+    if [[ -e "$check" ]]; then
+      echo "$check" # This is not a debugging line.
+      not_found=0
+      if [[ ! -v all ]]; then
+	return
+      fi
+    fi
+  done
+  return $not_found
+}
+
+push_script() {
+  scripts=("${scripts[@]}" "$@")
+}
+
+append_readme() {
+  local type=$1
+
+  if [ -z "$type" ]; then
+    echo append_readme called without type. >&2
+    return 2
+  fi
+
+  echo Creating README.atwan.
+  cp "$at_lib"/README.$type "$at_build_dir"/README.atwan
+
+  if [ -e "$at_lib_release"/mk$type-append-readme ]; then
+    echo Appending $at_name-specific information to README.atwan.
+    if [ -x "$at_lib_release"/mk$type-append-readme ]; then
+      "$at_lib_release"/mk$type-append-readme >> "$at_build_dir"/README.atwan
+    else
+      cat "$at_lib_release"/mk$type-append-readme >> "$at_build_dir"/README.atwan
+    fi
+  fi
+}
+
+create_image() {
+  local type=$1
+
+  if [ -z "$type" ]; then
+    echo create_image called without type. >&2
+    return 2
+  fi
+
+  newfs=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+  echo Generating output image in \""$newfs"\".
+  "$(find_file "mk$type-generate-iso")" "$newfs"
+
+  if [[ -e "$at_out_file" ]]; then
+    echo $at_out_file is in the way. >&2
+    if [[ ! -v at_force ]]; then
+      echo Leaving generated image as \""$newfs"\".
+      return
+    fi
+
+    echo Deleting it as instructed. >&2
+    rm -f "$at_out_file"
+  fi
+
+  echo Moving temporary iso image to \""$at_out_file"\".
+  mv "$newfs" "$at_out_file"
+
+  echo Finished.
+}
+
+# Pass the name of a variable pair containing the url and filename to download.
+#
+# eg. run cache_get debian to download from $debian_url (into $debian_file if
+# it's set).
+#
+# This is seeming more pointless by the day.
+#
+# If ${$name}_file is not set, it is calculated by stripping everything before
+# the final / character from the url.
+#
+# If $at_cache_file is not set but $at_cache_dir is, $at_cache_file is set to
+# $at_cache_dir/${$name}_file.
+#
+# If $at_cache_file and/or $at_cache_dir are set and the file exists, the
+# download is not performed.
+#
+# If the file must be downloaded, it will be saved into $at_cache_file. If
+# $at_cache_* are not set, it will be saved into $at_work_dir (probably /tmp)
+# which must be deleted when the task is completed.
+cache_get() {
+  name=$1
+  shift
+  if eval [ -z '"$name"' -o -z \"\$${name}_url\" ]; then
+    echo Download file not specified or invalid: $name. >&2
+    return 1
+  fi
+
+  eval at_source_url=\$${name}_url
+  eval at_source_file=\$${name}_file
+  if [[ -z "$at_source_file" ]]; then
+    at_source_file=${at_source_url##*/}
+    echo "Determined downloaded filename automatically for $name ($at_source_url): $at_source_file."
+  fi
+  export at_source_url at_source_file
+
+  unset at_cache_tmp
+  if [[ ! -v at_cache_file ]]; then
+    if [[ -v at_cache_dir ]]; then
+      at_cache_file="$at_cache_dir"/"$at_source_file"
+    else
+      at_cache_file="$(mktemp ${at_work_dir:+--tmpdir=$at_work_dir})"
+      at_cache_tmp=1
+    fi
+  fi
+  export at_cache_file at_cache_tmp
+
+  if [[ -s "$at_cache_file" ]]; then
+    echo $at_cache_file already exists. Not downloading.
+  else
+    wget -O "$at_cache_file" "$at_source_url"
+  fi
+}

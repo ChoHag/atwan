@@ -1,5 +1,3 @@
-#!/bin/sh
-cat <<EOF
 # Preseed file taken originally from http://d-i.alioth.debian.org/manual/example-preseed.txt
 
 # Disable network configuration entirely.
@@ -40,4 +38,3 @@ d-i finish-install/reboot_in_progress note
 d-i grub-installer/only_debian boolean true
 d-i debian-installer/exit/poweroff boolean true
 
-EOF

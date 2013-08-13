@@ -1,11 +1,28 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
+source "$at_lib"/atwan.lib
+
 echo Installing preseed to "$at_build_dir"/atwan.preseed
 
-"$at_lib_release"/bootloader-preseed.options  >"$at_build_dir"/atwan.preseed
-"$at_lib_release"/bootloader-preseed.partman >>"$at_build_dir"/atwan.preseed
+cp "$(find_file "bootloader-preseed")" "$at_build_dir"/atwan.preseed
+
+# Well this is nasty.
+# partman-base's postinst script runs partman, which it has installed into /bin
+# Install a script in /sbin, which is before /bin in $PATH, which will be
+# called instead of the real partman.
+#  * The cd must have an entry in fstab and it must be /media/cdrom or the
+#    installer can't continue.
+#  * sfdisk needs -D or grub-probe can't detect ext2 on /boot.
+#  * grub-installer/bootdev can't be (hd0) so must be set when the device is
+#    known.
+cp "$(find_file "bootloader-fakepartman")" "$at_meta_dir"/preseed.early/fakepartman
+
+# But grub-installer/bootdev is not 'seen' if set by debconf-set and the
+# question gets asked. Include this in the pressed file so that debconf marks
+# it as seen.
+echo d-i grub-installer/bootdev string foo >>"$at_build_dir"/atwan.preseed
 
 for section in early late; do
   if [ $(ls -1 "$at_meta_dir"/preseed.$section/ 2>/dev/null | wc -l) -ge 1 ]; then
@@ -20,7 +37,6 @@ done >>"$at_build_dir"/atwan.preseed
 echo Updating isolinux.
 chmod +w "$at_build_dir"/isolinux
 prepend=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
-# netcfg/choose_interface=eth0 hostname=x domain=x 
 
 sed <"$at_build_dir"/isolinux/txt.cfg >"$prepend" \
 '/\(menu \)\?default/d;

@@ -1,2 +1,6 @@
 #!/bin/sh
-cp "$at_lib_release"/pubkey-bootloader "$at_meta_dir"/preseed.late/pubkey
+cat >"$at_meta_dir"/preseed.late/pubkey <<EOF
+mkdir /target/root/.gnupg;
+chmod 700 /target/root/.gnupg;
+tar xf /cdrom/gpg.tar -C /target/root/.gnupg
+EOF
