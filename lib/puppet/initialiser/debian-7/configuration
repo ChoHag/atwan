@@ -1,0 +1,19 @@
+#!bash
+# sourced within atwan-initialiser
+#
+# Configure puppet as the new server's configuration management tool -
+# Debian-specific portion to include the package to configure the APT
+# repository.
+
+if [[ $at_optarg_a =~ ^https?: ]]; then
+  cached_download $at_optarg_a
+else
+  at_cache_file=${at_optarg_a#file:}
+fi
+
+echo \ \ Puppetlabs repository source package.
+cp "$at_cache_file" "$at_build_dir"/puppetlabs.deb
+
+push step_result puppet_install
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../configuration"

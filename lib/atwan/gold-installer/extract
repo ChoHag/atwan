@@ -1,0 +1,6 @@
+#!bash
+# sourced within atwan
+#
+# Extract a downloaded (or cached) ISO file to the build directory.
+
+xorriso -indev "$at_cache_file" -osirrox on -extract / "$at_build_dir"

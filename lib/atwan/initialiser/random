@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+#
+# Set up a source of entropy or otherwise seed the PRNG.
+
+if [[ ! -v at_optarg_e ]]; then
+  echo \ \ No.
+  return 0
+fi
+
+echo '####' I am too lazy to write this bit. >&2
+return 1

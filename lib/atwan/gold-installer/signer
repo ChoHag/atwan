@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+#
+# Include the public GPG key which servers will consider fully trusted.
+
+echo Including exported GPG public key \""$at_optarg_k"\".
+
+gpgdir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+gpg --export -a $at_optarg_k | gpg --import --homedir "$gpgdir"
+rm "$gpgdir"/*~
+tar cf "$at_build_dir"/gpgpubkey.tar --numeric-owner --owner=0 --group=0 -C "$gpgdir" .
+rm -fr "$gpgdir"

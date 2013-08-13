@@ -1,0 +1,20 @@
+#!bash
+# sourced within atwan
+#
+# Pack the build directory with a README into an iso using the magic
+# incantation it was originally created with (as per the source for
+# debian-installer).
+
+echo Writing README.
+cp "$at_step_dir"/../README.in "$at_build_dir"/README.Atwan
+cat "$at_step_dir"/README.in >>"$at_build_dir"/README.Atwan
+
+newiso=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+echo Generating output image in \""$newiso"\".
+# I have no idea what this really does. I copied it from build/config/x86.cfg
+# in debian-installer
+xorriso -as mkisofs -r -J -b isolinux/isolinux.bin -c isolinux/boot.cat \
+  -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot   \
+  --efi-boot boot/grub/efi.img -no-emul-boot -o "$newiso" "$at_build_dir"
+
+save_out_file "$newiso"

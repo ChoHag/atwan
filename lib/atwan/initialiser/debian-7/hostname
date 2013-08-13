@@ -1,0 +1,11 @@
+#!bash
+# sourced within atwan
+#
+# Set the new server's hostname.
+
+at_fqdn=$at_optarg_n
+at_hostname=${at_optarg_n%%.*}
+at_domain=${at_optarg_n#*.}
+echo \ \ FQDN: $at_fqdn
+push at_variables at_fqdn at_hostname at_domain
+push step_result hostname

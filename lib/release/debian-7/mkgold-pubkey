@@ -1,2 +1,0 @@
-#!/bin/sh
-cp "$at_lib_release"/pubkey-bootloader "$at_meta_dir"/preseed.late/pubkey

@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# This script is run every minute on a new server (never during installation)
+# to look for, verify and execute an initialisation package.
+#
+# The functions are included below during the build of the gold image
+# installer. Although some functions may ultimately be defined twice, due to
+# the load order this in fact means that plugins override core functions as
+# expected.
+#
+# The included functions are obtained by simply collecting the initialiser.in
+# files in the core and active plugins.
+
+### INCLUDE
+
+set -e
+
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# Create a lock file.
+at_lock
+
+# Look for and open/mount the initialiser package.
+at_mount
+
+# Verify the package's authenticity (GPG scan).
+at_verify
+
+# Load this server's variables.
+at_variables
+
+# Do the automatic initialisation run.
+at_autorun
+
+# Unmount/delete the initialiser package.
+at_umount
+
+# Unlock the lock file (if necessary).
+at_unlock
+
+echo Atwan initialiser has run through to the end without error.

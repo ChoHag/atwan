@@ -1,0 +1,14 @@
+#!bash
+# sourced within atwan
+#
+# Append directives to the debconf preseed being built to create a root user,
+# with the password taken from the -p option, and no regular user accounts.
+
+cat <<EOF >>"$at_meta_dir"/preseed
+# Only a root user
+d-i passwd/root-login boolean true
+d-i passwd/make-user boolean false
+d-i passwd/root-password password $at_optarg_p
+d-i passwd/root-password-again password $at_optarg_p
+
+EOF

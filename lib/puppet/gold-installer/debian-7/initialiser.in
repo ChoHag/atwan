@@ -1,0 +1,10 @@
+#!bash
+# puppet/gold-installer/debian-7/initialiser.in
+#
+# Debian-specific portion of puppet installation.
+
+autostep_puppet_install() {
+  dpkg -i "$at_top"/puppetlabs.deb
+  apt-get update
+  apt-get --no-install-recommends -y install puppet
+}

@@ -1,0 +1,39 @@
+#!bash
+# sourced within atwan-initialiser
+#
+# Configure puppet as the new server's configuration management tool.
+#
+# Bootstrapping is handled by running puppet apply instead of puppet agent.
+#
+# The -E option is mandatory until I create something to act as its default.
+
+if [[ -v at_optarg_b && -v at_optarg_s ]]; then
+  echo Maybe in the future it will make sense to connect to a puppet master on >&2
+  echo a bootstrapped note, but not now.  >&2
+  echo 'The bootstrap (-b) and cmdb server (-s) options are incompatible.' >&2
+  exit 1
+fi
+
+if [[ -v at_optarg_b ]]; then
+  at_puppet_options="apply --verbose"
+
+  if [[ -v at_optarg_C ]]; then
+    at_puppet_options=$at_puppet_options\ $at_optarg_C
+  fi
+
+else
+  at_puppet_options="agent --verbose"
+
+  if [[ -v at_optarg_s ]]; then
+    at_puppet_options="$at_puppet_options --server $at_optarg_s"
+  fi
+  if [[ -v at_optarg_T ]]; then
+    at_puppet_options="$at_puppet_options --waitforcert $at_optarg_T"
+  fi
+
+  echo \ \ Puppet Master${at_optarg_s:+: $at_optarg_s}
+fi
+
+push at_variables at_puppet_options
+
+push step_result puppet_start

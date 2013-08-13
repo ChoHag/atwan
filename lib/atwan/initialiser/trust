@@ -1,0 +1,32 @@
+#!bash
+# sourced within atwan
+#
+# Trust the new server.
+
+echo '### This bit doesn'\'' work yet.' >&2
+return 1
+
+if [[ ! -v at_optarg_S ]]; then
+  echo \ \ No.
+  return
+fi
+
+if [[ $at_optarg_S =~ ^/ ]]; then
+  dd="dd if=$at_optarg_S \$bs"
+else
+  dd="$at_optarg_S | dd \$bs"
+fi
+
+if [[ -v at_optarg_K ]]; then
+  bs=bs=$at_optarg_K
+else
+  unset bs
+fi
+
+eval at_shared_secret=\$\("$dd" count=1\)
+
+# Wtf do I do with it?
+
+#Tell the central auth
+
+#Bake it into the init

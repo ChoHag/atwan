@@ -1,0 +1,6 @@
+#!bash
+# sourced within atwan
+#
+# Just prior to the build step but after everything else, plugins can use this
+# step to perform any actions which require previous actions to have been
+# completed. This step can be safely skipped.

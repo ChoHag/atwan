@@ -1,0 +1,9 @@
+#!bash
+# sourced within atwan
+#
+# Stop the initialiser script from scanning for initialiser packages.
+#
+# This should be done first.
+
+echo The initialiser must be stopped. >&2
+exit 1

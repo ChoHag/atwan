@@ -1,0 +1,18 @@
+#!bash
+# sourced within atwan
+#
+# Configure the system software sources (eg. apt or yum).
+
+# If the argument to the -y option does not contain a space it is assumed to be
+# just the URL and is transformed into a complete sources.list line before
+# being included as the at_repo variable.
+
+if [[ $at_optarg_y =~ ' ' ]]; then
+  at_apt_repo=$at_optarg_y
+  echo \ \ APT source entry: \""$at_repo"\"
+else
+  at_apt_repo="deb $at_optarg_y wheezy main"
+  echo \ \ APT repository: $at_repo
+fi
+push at_variables at_apt_repo
+push step_result apt

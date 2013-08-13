@@ -1,0 +1,22 @@
+# Include steps in the initialiser package to install and configure puppet as
+# the configuration management tool, and use its built in trust model to assure
+# the identity of new hosts (ie. generate a pre-trusted keypair within the
+# puppet master).
+#
+# I ought to either seperate these into two plugins or make each part optional
+# somehow.
+
+at_overload_steps=(trust configuration)
+
+ats_configuration_summary="$ats_configuration_summary [-T <delay>]"
+ats_configuration_options="$ats_configuration_options    -T: Delay between puppet agent certificate requests (--waitforcert)"
+ats_configuration_getopts="${ats_configuration_getopts}T:"
+at_args_T=(0 number 15)
+
+ats_trust_summary='[-P <puppet ca host>]'
+IFS='' read -r -d '' ats_trust_options <<'EOF' || true
+    -P: The [user@]hostname which, if supplied, is used to connect to a remote
+        puppet CA using ssh.
+EOF
+ats_trust_getopts=P:
+at_args_P=(0 string)

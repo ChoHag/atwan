@@ -1,3 +1,0 @@
-mkdir /mnt/sysimage/root/.gnupg
-chmod 700 /mnt/sysimage/root/.gnupg
-tar xf /mnt/source/gpg.tar -C /mnt/sysimage/root/.gnupg

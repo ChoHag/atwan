@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+#
+# Set or update authentication information on the new server.
+
+if [[ ! -v at_optarg_p ]]; then
+  echo \ \ No.
+  return 0
+fi
+
+echo '####' I am too lazy to write this bit. >&2
+return 1

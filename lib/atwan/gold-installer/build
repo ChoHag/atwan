@@ -1,0 +1,13 @@
+#!bash
+# sourced within atwan
+#
+# Build the gold installer into a format (probably a bootable ISO) which the
+# destination host type can boot. This is the final step, so if it is not
+# overridden the contents of the build directory are still saved into the
+# requested $at_out_file as an uncompressed tar.
+
+echo WARNING: The build step has not been overridden for $at_release. >&2
+echo Saving the build directory into \""$at_out_file"\".              >&2
+echo Which is really an uncompressed tar file despite the name.       >&2
+
+tar cf "$at_out_file" -C "$at_build_dir" .

@@ -1,0 +1,7 @@
+#!bash
+# sourced within atwan
+#
+# Configure networking on the new server.
+
+echo The network has to be configured. >&2
+exit 1

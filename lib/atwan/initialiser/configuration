@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+#
+# Configure configuration management on the new server.
+
+if [[ ! ( -v at_optarg_a || -v at_optarg_s ) ]]; then
+  echo \ \ No.
+  return 0
+fi
+
+echo '####' I am too lazy to write this bit. >&2
+return 1

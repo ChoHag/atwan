@@ -1,0 +1,19 @@
+#!bash
+# sourced within atwan
+#
+# Duplicate the default entry in isolinux' configuration, adjusting it to use
+# the preseed file and other options debian-installer requires to proceed
+# without prompting the user.
+
+echo Updating isolinux.
+chmod +w "$at_build_dir"/isolinux
+prepend=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+
+sed <"$at_build_dir"/isolinux/txt.cfg >"$prepend" \
+'/\(menu \)\?default/d;
+s/^label.*/label atwan/;
+s/menu label.*/menu label Automatic gold image (WIPES ALL DATA)/;
+s/append/& language=C country=US locale=C keymap=us hostname=localhost domain= file=\/cdrom\/atwan.preseed/;' 
+sed "1r $prepend" -i "$at_build_dir"/isolinux/txt.cfg
+rm -f "$prepend"
+chmod -w "$at_build_dir"/isolinux "$at_build_dir"/isolinux/isolinux.cfg

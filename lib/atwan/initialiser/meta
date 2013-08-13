@@ -1,0 +1,147 @@
+# The initialiser procedure creates an package which a server cloned from a
+# gold image uses to give it an identity and establish trust with a central
+# authority.
+#
+# Not all the steps listed below are required, and more can be added by
+# plugins if so desired.
+#
+# The steps which must be completed by a plugin are:
+#  * stop_initialiser
+#  * hostname
+#  * networking
+#  * software
+#
+# I don't have a complete idea of how atwan itself will implement trust yet, so
+# it makes no sense not to override that too.
+
+at_steps=(
+  'bootstrap:        Prepare a bootstrap image.'
+  'variables:        Set variables.'
+  'stop_initialiser: Stop automatic initialiser \(cron\).'
+
+  # If this is going to be done, it should be done early. Nothing else should
+  # really be order-dependent.
+  'authentication:   Update authentication credentials.'
+
+  'hostname:         Set the hostname:'
+  'logging:          Configure logging:'
+  'networking:       Configure networking:'
+  'software:         Configure software management:'
+
+  'clock:            Configure hardware clock:'
+  'random:           Configure random number generator:'
+  'filesystem:       Configure filesystem:'
+
+  'trust:            Establish trust:'
+  'configuration:    Configure configuration management:'
+)
+
+at_out_file_default=initialiser--\$at_optarg_n.iso
+at_out_file_default_display='initialiser--<fqdn>.iso'
+
+ats_bootstrap_summary='[ -b [-C <command-line>] [-E <etc dir>] ]'
+IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
+    -b: Create a bootstrap iso.
+    -C: Boot-strap command-line options. Usually the name of a file in the /etc
+        overlay directory.
+    -E: A directory which will be stored in a tar archive and extracted to
+	/etc on the bootstrap server.
+	If it is not specified, a 'default' tarball will be included which will
+	configure the plugin's cmdb server with its default configuration and a
+	means of access (ssh).
+EOF
+# The bootstrap step only exists to claim CLI options and set variables. The
+# standard atwan initialisation procedure deals with the location specified by
+# -E in the configuration step.  All Atwan will actually do if the bootstrap
+# step is not overriden, is copy the contents of <etc dir> over the top of /etc
+# on the new server. This either needs to contain something appropriate, or a
+# step needs to make note of at_optarg_b and at_optarg_E.  Mainly this is here
+# rather than left to plugins in order to get this bit:
+ats_bootstrap_getopts=bC:E:
+at_args_E=(0 string)
+
+ats_authentication_summary='[-p <secret>]'
+ats_authentication_options='    -p: The superuser'\''s password.'
+ats_authentication_getopts=p:
+at_args_p=(0 string)
+
+ats_hostname_summary='-n <fqdn>'
+ats_hostname_options='    -n: The FQDN of the new server.'
+ats_hostname_getopts=n:
+at_args_n=(1 string)
+
+ats_logging_summary='[-l <logging server address>]'
+ats_logging_options='    -l: The address to transmit log entries to.'
+ats_logging_getopts=l:
+at_args_l=(0 string)
+
+ats_networking_summary='-i <ip> [-m <netmask>] [-g <gateway>] -d <dns>'
+IFS='' read -r -d '' ats_networking_options <<'EOF' || true
+    -i: Host's IP address.
+	DNS lookup is not implemented thus this parameter is required.
+    -m: Host's netmask.
+	Default: 255.255.255.0
+	Until it is tested, short form netmasks are not supported.
+    -g: Host's gateway.
+	Default: Network address of host with a .1 suffix.
+    -d: Host's DNS.
+	A white-space separated list. Use quotes.
+	Lookup from this machine's /etc/resolv.conf is not implemented.
+EOF
+ats_networking_getopts=i:m:g:d:
+at_args_i=(1 string)
+at_args_m=(0 string 255.255.255.0)
+at_args_g=(0 string)
+at_args_d=(1 string)
+
+ats_software_summary='[-y <repository address>]'
+ats_software_options='    -y: Software repository address'
+ats_software_getopts=y:
+at_args_y=(0 string)
+
+ats_clock_summary='[-t <time server>]'
+ats_clock_options='    -t: The server from which to request the correct time.'
+ats_clock_getopts=l:
+at_args_l=(0 string)
+
+ats_random_summary='[-e <RNG setup address>]'
+ats_random_options='    -e: If set, describes how to configure entropy/the PRNG'
+ats_random_getopts=e:
+at_args_l=(0 string)
+
+ats_trust_summary='[-S <shared secret>] [-K <bits>]'
+IFS='' read -r -d '' ats_trust_options <<'EOF' || true
+    -S: The secret, or the method to create it, which will be shared
+        between the central authority and the new server.
+    -K: How many _bytes_ to consome from the shared secret. Not bits.
+        Default is the whole thing, or 256 (2048 bits) if it's /dev/(u)random
+EOF
+ats_trust_getopts=S:B:
+at_args_S=(0 string /dev/urandom)
+at_args_K=(0 number)
+
+ats_configuration_summary='[-a <cmdb installer>] [-s <cmdb server>]'
+IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
+    -a: The configuration management installation/configuration URL.
+    -s: The configuration management server address.
+EOF
+ats_configuration_getopts=a:s:
+at_args_a=(0 string)
+at_args_s=(0 string)
+
+# build is always the final step.
+ats_build_summary='[-k <gpg signing key>]'
+ats_build_options='    -k: GPG key id to use to sign the initialiser iso.'
+ats_build_getopts=k:
+at_args_k=(0 gpg:sec)
+
+further_checks() {
+  if [[ -v at_optarg_E && ! -v at_optarg_b ]]; then
+    echo 'Overlay /etc directory (-E) can only be specified in a bootstrap (-b) image.' >&2
+    exit 1
+  fi
+
+  if [[ -v at_optarg_S && $at_optarg_S =~ '^/dev/u?random$' && ! -v at_optarg_K ]]; then
+    at_optarg_K=256
+  fi
+}

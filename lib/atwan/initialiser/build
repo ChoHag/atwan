@@ -1,0 +1,47 @@
+#!bash
+# sourced within atwan
+#
+# Package up the build dir to be transmitted as an initialisation package.
+#
+# Collect the server's customisation variables, a README and sign everything
+# using GPG.
+
+echo Saving variables.
+for var in "${at_variables[@]}"; do
+  eval echo $var=\\\"\$"$var"\\\"
+done >"$at_build_dir"/variables
+
+
+echo Compiling autorun.
+cp "$at_step_dir"/autorun.sh "$at_build_dir"/autorun
+echo 'for step in' ${step_result[@]} >>"$at_build_dir"/autorun
+echo 'do autostep_$step; done' >>"$at_build_dir"/autorun
+# This is a just a shitty placeholder
+echo Generating some random noise...
+noise=$( dd if=${rng:-/dev/urandom} bs=1 count=32 | (shasum||md5sum) )
+echo Silenced.
+echo \# noise: "$noise" >>"$at_build_dir"/autorun
+
+
+echo Writing README.
+cp "$at_step_dir"/README.in "$at_build_dir"/README.Atwan
+
+
+echo Signing the contents of the initialiser image.
+list=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+for file in "$at_build_dir"/*; do
+  if [ -f "$file" ]; then
+    gpg --detach-sign ${at_getopts_k:+--default-key "$at_getopts_k"} "$file"
+    echo "${file##$at_build_dir}" >> "$list"
+  else
+    echo WARNING: Non-file found in build dir: "${file##$at_build_dir}" >&2
+  fi
+done
+sed 's/^\///' <"$list" >"$at_build_dir"/list
+gpg --detach-sign ${at_getopts_k:+--default-key "$at_getopts_k"} "$at_build_dir"/list
+
+
+newimg=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+echo Generating initialiser image in \""$newimg"\".
+xorriso -outdev "$newimg" -map "$at_build_dir" /
+save_out_file "$newimg"

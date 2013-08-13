@@ -1,0 +1,13 @@
+#!bash
+# sourced within atwan
+#
+# Unpack the public key (stored in gpgpubkey.tar on the gold installer CD,
+# created by the global signer step) to /root.
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../signer" # Exports to gpgpubkey.tar
+
+cat >"$at_meta_dir"/preseed.late/pubkey <<EOF
+mkdir /target/root/.gnupg;
+chmod 700 /target/root/.gnupg;
+tar xf /cdrom/gpgpubkey.tar -C /target/root/.gnupg
+EOF

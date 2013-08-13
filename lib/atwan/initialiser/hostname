@@ -1,0 +1,10 @@
+#!bash
+# sourced within atwan
+#
+# Set the new server's hostname.
+
+# The n argument is already mandatory so if this file is reached that means
+# atwan doesn't know how to do it (needs a plugin).
+
+echo The hostname has to be set. >&2
+exit 1

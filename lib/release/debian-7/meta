@@ -1,5 +1,0 @@
-name=Debian Wheezy 7.1
-repository_suite=wheezy
-repository_url=http://ftp.debian.org/debian/
-installer_url=http://cdimage.debian.org/debian-cd/7.1.0/amd64/iso-cd/debian-7.1.0-amd64-netinst.iso
-puppetlabs_url=http://apt.puppetlabs.com/puppetlabs-release-wheezy.deb

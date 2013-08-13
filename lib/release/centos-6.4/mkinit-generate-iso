@@ -1,2 +1,0 @@
-#!/bin/sh
-xorriso -outdev "$1" -map "$at_build_dir" /

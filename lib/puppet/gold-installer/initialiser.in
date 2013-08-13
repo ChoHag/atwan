@@ -1,0 +1,25 @@
+#!bash
+# puppet/gold-installer/initialiser.in
+#
+# Atwan gold image initialiser functionality to (optionally) trust and start
+# puppet.
+
+autostep_puppet_trust() {
+  if [ "$at_puppet_trust" = embedded ]; then
+    cp -a "$at_top"/puppet.ca "$(puppet agent --configprint localcacert)"
+    chown puppet:puppet "$(puppet agent --configprint localcacert)"
+    cp -a "$at_top"/puppet.cert "$(puppet agent --configprint hostcert)"
+    chown puppet:puppet "$(puppet agent --configprint hostcert)"
+    cp -a "$at_top"/puppet.key "$(puppet agent --configprint hostprivkey)"
+    chown puppet:puppet "$(puppet agent --configprint hostprivkey)"
+  fi
+}
+
+autostep_puppet_start() {
+  if [ "$at_bootstrap" -a "$at_bootstrap_files" ]; then
+    for cpspec in $at_bootstrap_files; do
+      cp -a ${cpspec%:*} ${cpspec#*:}
+    done
+  fi
+  puppet $at_puppet_options
+}

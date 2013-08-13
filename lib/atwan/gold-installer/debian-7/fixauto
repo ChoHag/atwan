@@ -1,0 +1,19 @@
+#!bash
+# sourced within atwan
+#
+# Include the contents of the preseed.early and preseed.late directories. See
+# preauto for more detail.
+
+echo Including atwan.preseed.
+cp "$at_meta_dir"/preseed "$at_build_dir"/atwan.preseed
+
+for section in early late; do
+  files=("$at_meta_dir"/preseed.$section/*)
+  if [[ ${#files[@]} -ge 0 ]]; then
+    unset string
+    for file in "${files[@]}"; do
+      string="$string$(tr -d \\n < "$file");"
+    done
+    echo d-i preseed/${section}_command string "$string"
+  fi
+done >>"$at_build_dir"/atwan.preseed

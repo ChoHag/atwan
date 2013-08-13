@@ -1,6 +1,0 @@
-#!/bin/sh
-# I have no idea what this really does. I copied it from build/config/x86.cfg
-# in debian-installer
-xorriso -as mkisofs -r -J -b isolinux/isolinux.bin -c isolinux/boot.cat \
-  -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot   \
-  --efi-boot boot/grub/efi.img -no-emul-boot -o "$1" "$at_build_dir"

@@ -1,0 +1,8 @@
+#!bash
+# sourced within atwan
+#
+# Configure the boot loader on the gold installer so that it can install an
+# Atwan gold image.
+
+echo Don\'t know how to configure the bootloader for $at_release. >&2
+return 1

@@ -1,0 +1,34 @@
+#!bash
+# sourced within atwan-initialiser
+#
+# The puppet plugin's own trust model entails creating a new keypair using the
+# puppet master (connected to with ssh if the -P option is given) and including
+# the private part in the initialiser package.
+
+if [[ -v at_optarg_b ]]; then
+  # There should be an option to install a bootstrap puppet master with a
+  # remote CA. For now assume bootstrap == puppetmaster == implicit trust.
+  echo \ \ Bootstrap trust is implicit.
+  return
+fi
+
+if [[ -v at_optarg_P ]]; then
+  cmd="ssh $at_optarg_P"
+  $cmd puppet cert generate $at_optarg_n
+  $cmd cat \"\$(puppet config print cacert)\" >"$at_build_dir"/puppet.ca
+  $cmd cat \"\$(puppet config print certdir)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.cert
+  touch "$at_build_dir"/puppet.key
+  chmod 600 "$at_build_dir"/puppet.key
+  $cmd cat \"\$(puppet config print privatekeydir)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.key
+else
+  puppet cert generate $at_optarg_n
+  cp "$(puppet config print cacert)" "$at_build_dir"/puppet.ca
+  cp "$(puppet config print certdir)"/$at_optarg_n.pem "$at_build_dir"/puppet.cert
+  cp "$(puppet config print privatekeydir)"/$at_optarg_n.pem "$at_build_dir"/puppet.key
+  chmod 600 "$at_build_dir"/puppet.key
+fi
+chmod 644 "$at_build_dir"/puppet.cert "$at_build_dir"/puppet.key
+
+at_puppet_trust=embedded
+push at_variables at_puppet_trust
+push step_result puppet_trust

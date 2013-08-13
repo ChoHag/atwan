@@ -1,0 +1,495 @@
+#!/bin/bash
+# Change these two lines if atwan gets installed.
+at_bin=${at_bin:-$(dirname "$0")}
+at_lib=${at_lib:-$at_bin/../lib}
+
+# Abort if any failure is not trapped
+set -e
+
+########## Folding, and reading this source code.
+
+# There are folding markers throughout this file so that if it is opened in vim
+# you should see around 100 lines of mostly comments. If using the default
+# settings, the code within a fold can be seen be navigating to it and typing
+# 'zo'. 'zc' will close it again and 'za' toggles between opened and closed.
+
+##########
+
+# Enable debugging if the debug environment variable is set to anything
+# other than null or zero.
+if [[ -v debug && $debug && $debug != 0 ]]; then
+  debug=1
+  set -x
+else
+  unset debug
+fi
+
+########## Library of functions.
+
+# I opted to put them here to keep the atwan core self-contained. There are
+# folding marks around the functions to make reading this script easier. They
+# have mostly superficial functionality.
+#
+# The interesting stuff starts after about 200 lines. If parsing command-line
+# arguments is interesting.
+
+  #{{{
+
+
+  # Display a usage statement including summary and description by combining
+  # options from all loaded plugins. Note that anything defined in the release
+  # subdirectory cannot affect this statement as the intended release is not
+  # known when displaying it.
+
+  usage() {
+    unset steps_summary steps_options
+    for step in "${at_steps[@]}" "$at_step_build"; do
+      step_name=${step%%:*} step_message=${step#*:}
+      nl=$'\n'
+      if [[ -v ats_${step_name}_summary ]]; then
+	eval summary=\$ats_${step_name}_summary
+	if [[ $steps_summary =~ $nl$ ]]; then
+	  steps_summary="${steps_summary:+$steps_summary}    $summary"
+	else
+	  steps_summary="${steps_summary:+$steps_summary$nl}    $summary"
+	fi
+      fi
+      if [[ -v ats_${step_name}_options ]]; then
+	eval options=\$ats_${step_name}_options
+	if [[ $steps_options =~ $nl$ ]]; then
+	  steps_options="${steps_options:+$steps_options}  ${step_name^} options:$nl$options"
+	else
+	  steps_options="${steps_options:+$steps_options$nl}  ${step_name^} options:$nl$options"
+	fi
+      fi
+    done
+
+    cat <<EOF
+  Usage:
+    atwan-$at_exe [-f] [-w <work dir>] [-c <cache file>] [-o <output>]
+$steps_summary
+
+  Options:
+    -f: Overwrite old image if it exists (force)
+    -w: Working directory
+	The default is that of mktemp, which is almost certainly /tmp.
+	NB. Building a CentOS gold image requires approx. 9GB of working space
+    -c: Cache directory
+	If set, a location to download files to. If the file already exists,
+	it is used instead.
+    -o: Output filename.
+        Default: ${at_out_file_default_display:-$at_out_file_default}
+    -r: OS release
+
+$steps_options
+EOF
+  }
+
+
+  # Append everything (else) to the array named in the first argument
+
+  push() {
+    name=$1
+    shift
+    eval $name='("${'"$name"'[@]}" "$@")'
+  }
+
+
+  # Add a string to the string containing the command which is executed as the
+  # shell is exiting. Yes, quite. This is brittle. Don't use it.
+
+  atexit() {
+    local trapexit
+    # Yes sed twice
+    trapexit=$(trap -p EXIT           \
+	| sed "1{s/^trap -- '//}"     \
+	| sed "\${s/' EXIT$//}")
+    if [[ ! -v debug ]]; then
+      trapexit="$@${trapexit:+; $trapexit}"
+    else
+      trapexit="echo Skipping ${@//;/\;}${trapexit:+;$trapexit}"
+    fi
+    trap "$trapexit" EXIT
+  }
+
+
+  # Pass the URL and optional filename to download into. The default filename
+  # is taken by stripping everything from the URL up to the final /.
+  #
+  # If at_cache_dir is set (the -c option), the file is downloaded into that
+  # directory if it is not there already. Otherwise the file is downloaded to the
+  # working/temp directory and deleted when atwan is finished.
+  #
+  # at_cache_file is then set to the filesystem path to which the URL has been
+  # downloaded. This variable is only valid until cached_download is called again
+  # so save it if you need it.
+
+  cached_download() {
+    url=$1
+    name=${2:-${url##*/}}
+
+    if [[ -v at_cache_dir ]]; then
+      at_cache_file=$at_cache_dir/$name
+    else
+      file_path=$(mktemp ${at_work_dir:+--tmpdir=$at_work_dir} -d)
+      at_cache_file=$file_path/$name
+      # Expand here as the file_path variable is neither global nor static
+      atexit "chmod +rw -R \"$file_path\"; rm -rf \"$file_path\""
+    fi
+
+    if [[ -s "$at_cache_file" ]]; then # Size > 0
+      echo $at_cache_file already exists. Not downloading.
+    else
+      echo Downloading $url to $at_cache_file.
+      wget ${debug:+--verbose} -O "$at_cache_file" "$url"
+    fi
+  }
+
+
+  # Given a list of directories, ensure each one has a meta file, then source
+  # it (it should only set variables) and then record which steps are defined
+  # in which directory. As this is called by specifying the global directory
+  # followed by all plugins (in the order specified by the user), the effect is
+  # to have plugins override the steps in the global directory (and any plugins
+  # loaded prior to them). Note that *all* meta files are parsed - later meta
+  # files must overwrite any and all variables they care about.
+
+  include_meta() {
+    for dir; do
+      if [[ ! -r $dir/meta ]]; then
+	if [[ ! -v at_release ]]; then
+	  echo "$dir"/meta not found or unreadable. >&2
+	  return 1
+	else
+	  continue
+	fi
+      fi
+
+      unset at_overload_steps
+      if [[ ! -v at_steps ]]; then
+	unset to
+      else
+	to=late_
+      fi
+      source "$dir"/meta
+
+      eval to_steps=\(\"\${at_${to}steps[@]}\"\)
+      for step in "${to_steps[@]}" "${at_overload_steps[@]}"; do
+	eval ats_${step%%:*}_dir=\$dir
+      done
+      if [[ ! -v ats_build_dir ]]; then
+	# If it's not set, this is also the first time include_meta is being
+	# called so assume $dir is $at_lib/atwan/$at_exe
+	ats_build_dir=$dir
+      fi
+    done
+  }
+
+
+  # Calculate and echo the full path to the file defining the step named in the
+  # first argument. This basically lets a more specific file definied within a
+  # release override the regular one.
+
+  locate_step() {
+    step=$1
+
+    eval search_dir=\$ats_${step}_dir
+
+    # Relative paths are to the current directory
+    if [[ ! $search_dir =~ ^/ ]]; then
+      search_dir=$PWD/$search_dir
+    fi
+
+    if [[ -v at_release ]]; then
+      search_dir[1]=${search_dir[0]}/$at_release
+    fi
+
+    unset found
+    for path in "${search_dir[@]}"; do
+      if [[ -r $path/$step ]]; then found=$path; fi
+      # Keep going to the release overrides the global
+    done
+    if [[ ! -v found ]]; then
+      echo "$search_dir/$step" does not exist for step $step or is unreadble. >&2
+      return 1
+    fi
+
+    echo "$found"
+  }
+
+
+  # Move the temporary file given as the argument to $at_out_file, obeying
+  # $at_force if $at_out_file exists and being extremely chatty about the whole
+
+  save_out_file() {
+    newimg=$1
+
+    if [[ -e "$at_out_file" ]]; then
+      echo $at_out_file is in the way. >&2
+      if [[ ! -v at_force ]]; then
+	echo Leaving generated image as \""$newimg"\".
+	return
+      fi
+
+      echo Deleting it as instructed. >&2
+      rm -f "$at_out_file"
+    fi
+
+    echo Moving temporary image to \""$at_out_file"\".
+    mv "$newimg" "$at_out_file"
+  }
+
+  #}}}
+
+########## Internal initialisation.
+
+# Atwan really just calls a sequence of steps in order as defined in metadata
+# elsewhere. I didn't really want to write that but it's what I ended up with.
+# The actual sequence is defined by changing the executable name (with or
+# without the prefix 'atwan-') or using the executable name 'atwan' in which
+# case the first argument is taken as the procedure name and stripped from the
+# list. The name, $at_exe, determines where to look for a meta file defining
+# the sequence of steps in the at_steps (and at_late_steps) variables.
+#
+# The procedure name must not begin with a hyphen (-) so that atwan can
+# distinguish between the procedure name and command-line arguments, and to
+# preserve your and my sanity.
+
+  #{{{
+
+  # Determine the procedure name
+
+  at_exe=$(basename "$0")
+  if [[ $at_exe != atwan ]]; then
+    at_exe=${at_exe#atwan-}
+  else
+    if [[ $# -eq 0 ]]; then
+      echo No atwan procedure was specified and none can be inferred from the executable name. >&2
+      echo A list of available commands is in "$at_lib/atwan": >&2
+      ls -1 "$at_lib/atwan" >&2
+      exit 1
+    fi
+    if [[ $1 =~ ^- ]]; then
+      echo The atwan procedure cannot be inferred from the executable name and the >&2
+      echo first argument begins with a hyphen, so it\'s probably an option. >&2
+      exit 1
+    fi
+    at_exe=$1
+    shift
+
+    echo Atwan procedure taken from first command line argument: "$at_exe" >&2
+  fi
+
+
+  # The build step does not need to (and should not) be defined in the meta
+  # files, but it must always occur (last) so it is treated specially when
+  # looping through steps.
+
+  at_step_build='build: Build the output file'
+
+
+  # Load plugins
+
+  oIFS=$IFS IFS=:
+  # Get bash to do the string->array heavy lifting
+  at_plugins_search=($at_plugins)
+  IFS=$oIFS
+  unset at_plugins
+  for dir in "${at_plugins_search[@]}"; do
+    if [[ ! $dir =~ ^/ ]]; then
+      dir=$at_lib/$dir
+    fi
+    if [[ -e $dir/$at_exe/meta ]]; then
+      push at_plugins "$dir/$at_exe"
+    fi
+  done
+
+  further_checks() { return 0; }
+  # Eh what? This is called after the CLI is checked. It can be overriden by
+  # the global meta file (and, later, the release meta file) so it has to be
+  # defined before that gets parsed.
+
+  include_meta "$at_lib/atwan/$at_exe" "${at_plugins[@]}"
+
+  #}}}
+
+########## Parse command-line arguments (and scan the release metadata)
+
+  #{{{
+
+  # Clean slate
+  unset at_force at_work_dir at_cache_dir at_out_file at_release
+  for letter in {a..z} {A..Z}; do unset at_optarg_$letter; done
+
+  # Calculate getopt option string
+  at_cli_getopts='fw:c:o:r:'
+  for step in "${at_steps[@]}" "$at_step_build"; do
+    step_name=${step%%:*} step_message=${step#*:}
+    if [[ -v ats_${step_name}_getopts ]]; then
+      eval at_cli_getopts=\"\$at_cli_getopts\$ats_${step_name}_getopts\"
+    fi
+  done
+
+  while getopts "$at_cli_getopts" arg; do
+    case $arg in
+      f) at_force=1 ;;
+      w) at_work_dir=$OPTARG ;;
+      c) at_cache_dir=$OPTARG ;;
+      o) at_out_file=$OPTARG ;;
+      r) at_release=$OPTARG ;;
+      ?)
+	if [[ $arg != \? ]]; then
+	  eval at_optarg_$arg=\${OPTARG:-1}
+	else
+	  usage
+	  exit 1
+	fi
+	;;
+    esac
+  done
+  shift $(expr $OPTIND - 1)
+
+  # Validate options
+
+    #{{{
+
+  # Tot up validation failures so we get all the parsing errors at once and
+  # they can all be fixed at once.
+
+  at_getopt_fail=0
+
+  if [[ -v at_work_dir && ! -d "$at_work_dir" ]]; then
+    echo Working directory "$at_work_dir" does not exist. >&2
+    ((at_getopt_fail+=1))
+  fi
+
+  if [[ -v at_cache_dir && ! -d "$at_cache_dir" ]]; then
+    echo Cache directory "$at_cache_dir" does not exist. >&2
+    ((at_getopt_fail+=1))
+  fi
+
+  if [[ ! -v at_release ]]; then
+    echo No OS release specified. >&2
+    ((at_getopt_fail+=1))
+  fi
+
+  # Now that the release is known, its metadata can be included. That it is so
+  # late in the process means if the release metadata does something more
+  # exotic than set some defaults or the like, you're doing it wrong.
+
+  include_meta "$at_lib/atwan/$at_exe/$at_release" "${at_plugins[@]/%//$at_release}"
+
+  # If a plugin defines a command-line option it'll end up in
+  # at_optarg_$letter. If defaults are defined, they are set here. The
+  # variables are then checked as much as they can be, including whether it
+  # is required.
+
+  for letter in {a..z} {A..Z}; do
+    if [[ ! -v at_args_$letter ]]; then continue; fi
+    eval at_args_letter=\(\"\${at_args_$letter[@]}\"\)
+
+    eval arg=\$at_optarg_$letter
+
+    case ${at_args_letter[1]} in
+      number|string)
+	if [[ -z $arg && -n ${at_args_letter[2]} ]]; then
+	  # Set the default if appropriate
+	  eval at_optarg_$letter=\${at_args_letter[2]}
+	fi
+	if [[ $arg && ${at_args_letter[1]} == 'number' \
+	      && ! $arg =~ ^[0-9]+$ ]]
+	then
+	  echo "$arg" is not a number. >&2
+	  ((at_getopt_fail+=1))
+	fi
+	;;
+
+      gpg:*)
+	if [[ -n $arg ]]; then
+	  if ! gpg --list-secret-keys "$arg" >/dev/null; then
+	    if [[ ${at_args_letter[1]%:*} == sec ]]; then
+	      echo Cannot find secret key \""$arg"\". >&2
+	      ((at_getopt_fail+=1))
+	    else
+	      echo WARNING: Secret key for requested public key \""$arg"\" is not available. >&2
+	    fi
+	  fi
+
+	elif [[ -z ${at_args_letter[2]} ]]; then
+	  keys=$(gpg --list-secret-keys --with-colons|awk -F: '$1=="sec"{print$5}')
+	  if [[ $(echo "$keys" | wc -l) != 1 ]]; then
+	    echo Multiple secret keys available. >&2
+	    gpg --list-secret-keys --with-colons \
+	      | awk -F: '$1=="sec" {print " * " $5 " " $10}' >&2
+	    ((at_getopt_fail+=1))
+	  else
+	    eval at_optarg_$letter=\$keys
+	  fi
+	fi
+	;;
+
+    esac
+
+    if [[ ! -v at_optarg_$letter ]]; then
+      if [[ ${at_args_letter[0]} != 0 ]]; then
+	echo The $letter option is mandatory. >&2
+	((at_getopt_fail+=1))
+      fi
+    fi
+
+  done
+
+  # Perform any checks defined in the global meta file
+
+  if ! further_checks; then
+    ((at_getopt_fail+=$?))
+  fi
+
+  if [[ $at_getopt_fail -gt 0 ]]; then
+    echo $at_getopt_fail failure\(s\) encountered parsing command-line options. Aborting. >&2
+    exit $at_getopt_fail # Because I can.
+  fi
+
+    #}}}
+  #}}}
+
+########## Now it finally kicks off
+
+  #{{{
+
+  if [[ ! -v at_out_file ]]; then
+    eval at_out_file=$at_out_file_default
+  fi
+
+  at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+  atexit 'chmod +rw -R "$at_build_dir"; rm -fr "$at_build_dir"'
+
+  # Loop through all the steps. If the step file is executable, source it and
+  # leave it alone. Otherwise copy it as is to the build directory and append
+  # the step name to $step_result.
+
+  unset result
+  count=0
+  for step in "${at_steps[@]}" "${at_late_steps[@]}" "$at_step_build"; do
+    step_name=${step%%:*} step_message=${step#*:}
+
+    echo
+    ((count+=1))
+    eval echo $count\\\) $step_message ## eval for variable interpolation
+
+    at_step_dir=$(locate_step "${step_name}")
+
+    if [[ -x $at_step_dir/$step_name ]]; then
+      source "$at_step_dir/$step_name"
+    else
+      # Existence has already been verified.
+      cp "$at_step_dir/$step_name" "$at_build_dir"
+      push step_result "$step_name"
+    fi
+  done
+
+  #}}}
+
+echo Finished.
+
+# vim: set ft=sh fdm=marker:

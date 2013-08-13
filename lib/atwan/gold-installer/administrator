@@ -1,0 +1,10 @@
+#!bash
+# sourced within atwan
+#
+# Configure the gold installer such that it sets the superuser (ie. root)
+# password to a known value.
+
+if [[ -v at_optarg_p ]]; then
+  echo Don\'t know how to set the administrator password for $at_release. >&2
+  return 1
+fi

@@ -1,0 +1,29 @@
+#!bash
+# sourced within atwan
+#
+# Ensure the installed gold image will scan for and use an initialisation file.
+
+# Copy initialiser-cron to the build directory, including any initialiser.in
+# files in place of the ### INCLUDE line with an appropriate header/footer, but
+# do not get it activated on the new server it as how that's done is dependent
+# on the platform. This just ensures it's included in the installer CD.
+
+while read -r line; do
+  if [[ $line =~ ^###\ INCLUDE$ ]]; then
+    echo '### BEGIN INCLUDE'
+    # Plugins can replace functions exported by the core procedure by simply
+    # redefining them due to the order in which they are included here.
+    for dir in "$at_lib/atwan/$at_exe" "${at_plugins[@]}"; do
+      for subdir in . $at_release; do
+	if [[ -e $dir/$subdir/initialiser.in ]]; then
+	  cat $dir/$subdir/initialiser.in
+	fi
+      done
+    done
+    echo '### END INCLUDE'
+  else
+    echo "$line"
+  fi
+done <"$at_step_dir"/initialiser-cron >"$at_build_dir"/initialiser-cron
+
+chmod 755 "$at_build_dir"/initialiser-cron

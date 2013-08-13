@@ -1,0 +1,15 @@
+#!bash
+# sourced within atwan
+#
+# Download the url given as an argument to the -u option which should be a
+# vendor's distributable installer, probably an ISO.
+
+if [[ $at_optarg_u =~ ^https?: ]]; then
+  cached_download $at_optarg_u
+else
+  at_cache_file=${at_optarg_u#file:}
+fi
+
+#### NEEDS GPG VERIFICATION ASAP!
+
+#### Also the URL could probably be sanity checked at least a bit.

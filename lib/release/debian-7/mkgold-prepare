@@ -1,2 +1,0 @@
-#!/bin/sh
-mkdir "$at_meta_dir"/preseed.early "$at_meta_dir"/preseed.late
