@@ -1,0 +1,7 @@
+Initialise gold-etc/puppet{,.git}:
+
+mkdir gold-etc
+cd gold-etc
+git clone -o github --separate-git-dir puppet.git --recursive git://github.com/ChoHag/atwan-puppet.git puppet
+# rm -fr puppet/{modules,manifests}
+sed "s|$PWD|/etc|" -i puppet/.git puppet.git/config

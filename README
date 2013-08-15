@@ -1,138 +1,142 @@
-Requirements:
+ATWAN
 
-some kind of virtualisation system
-centos 6.4 installer dvd 1 or iso in $CENTOS
-Lots of free space in $SPACE
-A puppet manifest in $PUPPET
+What is this and how does it work?
 
-With no other virtualisation system to hand, or just to do everything on the
-command line, you can use nbsvm (https://github.com/ChoHag/nbsvm)
+This is a tool which will allow you to take any machine, VM or tin, and
+bootstrap a network of servers managed by a CMDB with next to no human
+interaction.
 
-nbsvm requires lvm. If you don't use it, fake it:
+It will be eventually, anyway.
 
-GB=20 # Probably
-dd if=/dev/zero of=$SPACE/pv.img bs=$((1048576)) seek=$(($GB*1024-1)) count=1
-losetup /dev/loop0 $SPACE/pv.img
-pvcreate /dev/loop0
-vgcreate vgtmp /dev/loop0
+Requirements
+============
 
-# When finished:
-# vgchange -an vgtmp
-# losetup -d /dev/loop0
-# rm $SPACE/pv.img
+1 systems administrator (with laptop, but they come as a pair).
 
-It also needs a bridge to plug into:
-I really ought to check the iptables rules.
+1 (optionally virtual) environment.
 
-brctl addbr brtmp
-ifconfig brtmp 10.0.0.1 netmask 255.255.255.0 up
-# I think this stuff is right:
-# Can be repeated for any/all $OUTDEVICEs, eg. eth0 & wlan0
-iptables -t nat -I POSTROUTING -i brtmp -s 10.0.0.0/24 -o $OUTDEVICE -j MASQUERADE
-# These 2 might be necessary if you already have a firewall:
-iptables -I FORWARD -i brtmp -o brtmp -j ACCEPT
-iptables -I FORWARD -i brtmp -o $OUTDEVICE -j ACCEPT
-echo 1 > /proc/sys/net/ipv4/ip_forward
+1 internet connection.
+
+1 CMDB (currently only puppet is supported).
+
+Bash.
+
+Wget.
+
+GnuPG.
+
+Xorriso (although this is baked into the debian and centos distribution
+scripts, not the mkiso-* scripts so is not a hard dependency).
+
+Currently only Debian 7 (Wheezy) and puppet are supported. CentOS was supported
+but it lapsed. Hooks to handle non-puppet CMDBs have only just been added.
 
 
-If you want a new nbsvm class for this:
+Overview
+========
 
-cat <<EOF >/etc/nbsvm/attest.class
-drive_size=10G
-mem=1024
-vg=vgtmp
-bridge=brtmp
-EOF
-ln -s nbsvm /usr/local/bin/attestvm
+Ultimately there are two scripts, mkiso-goldimage and mkiso-initialiser, which
+call a series of much smaller scripts to perform the half dozen or so steps
+required to create each type of ISO. A search path is utilised so that, for
+example, the same scripts to install Puppet can be used for Debian and CentOS,
+if they are compatible.
 
+mkiso-goldimage and mkiso-initialiser will give a usage message if -? (or any
+other unknown option) is passed. I have paid extra attention to ensure error
+states are handled and the messages clear. If anything is missing please let me
+know.
 
-Then onto important stuff:
+Where both scripts need the same options (eg. the OS release to build against),
+they are kept in sync between the two scripts (both internal and in how they
+are presented to the user in the usage message and the letter chosen to
+represent them in the argument list).
 
-Build an iso which will create a gold image. All this really does is install a
-kickstart script onto the iso which it will use to install a minimal set of
-centos packages, and a script on the installed image in /root/initialiser.cron
-which it configures cron to run every minute.
+Two options are of particular note:
 
-mkdir $SPACE/tmp $SPACE/cache
-# If you already have centos dvd 1 put it in $SPACE/cache/CentOS-6.4-x86_64-bin-DVD1.iso
-mkiso-goldimage -o $SPACE/gold.iso -w $SPACE/tmp -c $SPACE/cache -r centos-6.4
+ * -w to specify the directory to be used for building the images. Not
+   recommended to stick with the default of /tmp as there must be enough space
+   for the installer ISO to be download, extracted and re-packed.
 
-Then create a gold image vm.
-With the attmp class from above:
-vnc_port=5901 attmpvm gold newimg start -cdrom $SPACE/gold.iso -- vnc
-
-In the console you will need to select the new 'Install an automatic gold
-image' option above the default-selected isolinux option.
-
-The gold image is an extremely minimal CentOS which runs a cron script to check
-the contents of the cd drive (it would have been usb but vmware doesn't do
-virtual usb devices) and run the autorun scripts contained on it (one day these
-will be signed and the signatures checked against the key implanted onto the
-gold image).
-
-After the gold image there are 2 flavours of initialiser iso, bootstrap and
-regular, which are used to give each machine its identity (eventually dhcp will
-be supported). The bootstrap iso contains a puppet manifest and runs puppet
-apply which sets up the puppet master only (by default). The regular iso does
-not include the manifest (and thus is only a few 100 KB) and runs puppet agent.
-
-Apart from this difference, the initialiser iso does whatever else is necessary
-to get a puppet client running. For centos-6.4, which is the only thing there's
-code for, this means setting up the network, adding the puppetlabs repository
-to yum, installing puppet using yum and then running puppet apply/agent.
-
-The puppetmaster is needed first. Networking support is extremely primitive
-right now. Change the IP (-i) DNS servers (-d) and gateway (-g) below as
-appropriate.
-
-mkiso-initialiser -o $SPACE/init-puppetmaster.iso -w $SPACE/tmp -c $SPACE/cache -b -p $PUPPET -r centos-6.4 -n puppetmaster.example.com -i 10.0.0.2 -g 10.0.0.1 -d 10.0.0.1
-
-The -b flag uses a hard-coded ENC script to install just the puppet master. The
-regular agent/master communication will then be used over localhost if any
-other classes are defined in the real ENC script. If you need to create a
-machine which won't have access to a puppetmaster, the -B flag can be used
-instead to run puppet with the destination machine's actual manifest, for
-example if you need a proxy or package repository set up first:
-
-mkiso-initialiser -o $SPACE/init-proxy.iso -w $SPACE/tmp -c $SPACE/cache -B -p $PUPPET -r centos-6.4 -n proxy.example.com -i 10.0.0.42 -g 10.0.0.1 -d 10.0.0.1
-
-A cheap way to clone nbsvm VMs is to take a snapshot of the source:
-
-lvcreate -s /dev/vgtmp/nbsvm-attmp-gold-0 -L 2G -n nbsvm-attmp-puppetmaster-0
-
-Then start the VM with the cd inserted:
-
-vnc_port=5902 mac=52:54:00:10:00:02 attmpvm puppetmaster start -cdrom $SPACE/init-puppetmaster.iso
-
-Alternatively the cd can be inserted to an already-running gold image clone. It
-is not a bootable disc.
+ * -c to specify a directory to cache downloaded files into, eg. ~/Downloads is
+   where Chrome and Firefox download to by default. If not specified, atwan
+   will download to /tmp (or wherever mktemp tells it to) and delete the file
+   when finished with it.
 
 
-After a while the network will be activated. After even more of a while puppet
-and puppetmaster will have been installed along with any other classes
-specified in the puppet manifest in $PUPPET.
+mkiso-goldimage
+===============
+
+Downloads the installer CD for the operating system you specify and modifies it to:
+
+ * Add an option to automatically install the operating system with the least
+   amount of software practical. Typically this means the kernel, whatever
+   package management system the distribution uses, syslog, cron and possibly
+   an SMTP server.
+
+   When I trust myself enough, it will also make this option the default option
+   when the CD is booted.
+
+ * Install a given GPG public key to root's public keyring.
+
+ * Install a script (/root/atwan-initialise) and get cron to run it every minute.
+
+ * Not boot the resulting installation - it will shut down or just stop after
+   the installation is finished.
+
+This ISO is then used to create a gold image which should be turned into
+whatever your VM manager calls a template for future cloning.
+
+When the template is cloned into a new VM, it will run /root/atwan-initialise
+every minute to do the following:
+
+ * Attempt to mount a CD on /mnt, or complain to STDERR that /mnt is bust and
+   exit with code 1.
+
+   It was originally going to be a (much easier to create) ext2 filesystem in a
+   file, but at least ESXi cannot turn that into a virtual block device (eg. USB).
+
+ * Generate a lockfile in /var/lock/initialise.lock containing the script's PID,
+   or fail with no error but exit code 2. This will be removed when the script
+   finishes.
+
+ * Verify that the contents of the CD are signed by the GPG public key
+   installed into the gold image, and that /mnt/autorun in particular is signed
+   and executable.
+
+ * Execute /mnt/auturun
 
 
-An iso can then be created for each intended vm to give it its identity (see also: dhcp):
+mkiso-initialiser
+=================
 
-mkiso-initialiser -o $SPACE/init-other.iso -w $SPACE/tmp -c $SPACE/cache -r centos-6.4 -n other.example.com -i 10.0.0.3 -d 10.0.0.1
+Create an ISO which contains the autorun script used above. This ISO is unique
+per host (because I haven't written DHCP support yet) and (again because I
+haven't written that bit), the IP and DNS servers must be set manually, as must
+the network and default gateway if they are not the obvious (/24 and .1).
 
-When a gold image is started with that iso, eventually it will have installed
-and run the puppet agent, and a signing request will be waiting on the puppet
-master. When signed, this new VM will be puppetised.
+autorun will:
 
+ * Remove the initialiser script from cron.
 
-The included puppet manifest includes a very boring web server which I haven't
-properly tested.
+ * Optionally change the root password hard-coded into the gold image.
 
-mkiso-initialiser -o $SPACE/init-www.iso -w $SPACE/tmp -c $SPACE/cache -r centos-6.4 -n www.example.com -i 10.0.0.3 -d 10.0.0.1
+ * Optionally set this VM up for bootstrapping without a central configuration
+   node (that is - it will include a tarball to extract to /etc and alter the
+   command used to activate the CMDB).
 
-vnc_port=5903 mac=52:54:00:10:00:03 attmpvm www start -cdrom $SPACE/init-www.iso
+ * Configure the network settings, which can include configuring http proxy
+   settings. Up to now the cloned VM has been operating with only the loopback
+   device operational.
 
-After a while...
+ * Configure the package repository.
 
-On the puppet master: puppet cert sign www.example.com.
+ * Install and configure a CMDB.
 
-After another while...
+Each file placed onto the CD is signed with the private counterpart to the
+public key installed in the gold image. 32 bytes are extracted from /dev/random
+and passed into '(shasum||md5sum)' to form a comment in /mnt/autorun and ensure
+that its contents are unique. This is really just a placeholder (hence the
+intentionally bad hash algorithm) until somebody who knows the maths can step
+in and get it provably correct, as opposed to just working.
 
-In a web browser: http://10.0.0.3/ and http://10.0.0.3/cgi-bin/hostname2html
+If you don't use the GPG agent, this process will annoy you.
