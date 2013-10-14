@@ -6,7 +6,10 @@
 # I ought to either seperate these into two plugins or make each part optional
 # somehow.
 
-at_overload_steps=(trust configuration)
+at_steps=(
+  trust
+  configuration
+)
 
 ats_configuration_summary="$ats_configuration_summary [-T <delay>]"
 ats_configuration_options="$ats_configuration_options    -T: Delay between puppet agent certificate requests (--waitforcert)"

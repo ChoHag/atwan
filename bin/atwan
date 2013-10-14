@@ -28,7 +28,7 @@ fi
 
 # I opted to put them here to keep the atwan core self-contained. There are
 # folding marks around the functions to make reading this script easier. They
-# have mostly superficial functionality.
+# have mostly superficial functionality, or do just what 
 #
 # The interesting stuff starts after about 200 lines. If parsing command-line
 # arguments is interesting.
@@ -43,7 +43,7 @@ fi
 
   usage() {
     unset steps_summary steps_options
-    for step in "${at_steps[@]}" "$at_step_build"; do
+    for step in "${at_order[@]}"; do
       step_name=${step%%:*} step_message=${step#*:}
       nl=$'\n'
       if [[ -v ats_${step_name}_summary ]]; then
@@ -112,6 +112,10 @@ EOF
     trap "$trapexit" EXIT
   }
 
+  if [[ -v debug ]]; then
+    trap "echo at* variables:; set | grep -E ^ats?p?_" EXIT
+  fi
+
 
   # Pass the URL and optional filename to download into. The default filename
   # is taken by stripping everything from the URL up to the final /.
@@ -146,76 +150,128 @@ EOF
   }
 
 
-  # Given a list of directories, ensure each one has a meta file, then source
-  # it (it should only set variables) and then record which steps are defined
-  # in which directory. As this is called by specifying the global directory
-  # followed by all plugins (in the order specified by the user), the effect is
-  # to have plugins override the steps in the global directory (and any plugins
-  # loaded prior to them). Note that *all* meta files are parsed - later meta
-  # files must overwrite any and all variables they care about.
+  # Load the atwan module and any plugins listed in the at_plugins variable, a
+  # search path separated by colons (:). Paths which don't begin with / are
+  # considered relative to the atwan modules directory (at_lib, set at the top
+  # of this script).
+  #
+  # Each plugin is expected to set the at_steps variable to a list of all of
+  # the steps that plugin defines or overrides/augments, and any other
+  # variables as appropriate, documented elsewhere.
 
-  include_meta() {
-    for dir; do
-      if [[ ! -r $dir/meta ]]; then
-	if [[ ! -v at_release ]]; then
-	  echo "$dir"/meta not found or unreadable. >&2
-	  return 1
-	else
-	  continue
+  load_plugins() {
+    subdir=$1
+
+    oIFS=$IFS IFS=:
+    # Get bash to do the string->array heavy lifting.
+    at_plugins_search=($at_plugins)
+    IFS=$oIFS
+    for plugin in atwan "${at_plugins_search[@]}"; do
+      # lib/atwan is not really special, it's just first.
+      if [[ ! $plugin =~ ^/ ]]
+	then plugin_dir=$at_lib/$plugin
+	else plugin_dir=$plugin
+      fi
+
+      if [[ ! -d $plugin_dir ]]; then
+	echo Plugin not found: "$plugin". >&2
+	return 1
+      fi
+
+      full_dir=$plugin_dir/$at_exe/$subdir
+      if [[ -e $full_dir && ! -r $full_dir/meta ]]; then
+	echo No metadata for plugin "$plugin${subdir:+::$subdir}": Skipping. >&2
+	continue
+      fi
+
+      unset at_steps
+      source "$full_dir/meta"
+
+      for step_full in "${at_steps[@]}"; do
+	# Each element of at_steps is broken up as follows:
+	#
+	# step_full    The string supplied by the meta file.
+	# step_token   The (eventually*) augmented name of the step.
+	# step_message The message part of step_full.
+	# step_name    The name of the step.
+	# augment      How the plugin augments an existing step.
+
+	step_token=${step_full%%:*}
+	step_message=${step_full#*:}
+
+	# This conditional statement's clauses make the most sense when read in
+	# order 1, 3, 2; but the logic is easier this way around.
+	if [[ $plugin == atwan && -z $subdir ]]; then
+	  # Steps in atwan (TODO: should check idx==0 not plugin==atwan) are
+	  # always considered new.
+	  step_token=new/$step_token
+
+	elif [[ $plugin != atwan && -n $subdir ]]; then
+	  # Steps in a subdirectory always run in place of the plugin's core
+	  # implementation of that step.
+	  if [[ $step_token =~ / ]]; then
+	    echo Plugin subdirectories \("$plugin::$subdir"\) cannot augment steps. >&2
+	    return 1
+	  fi
+	  step_token=::/$step_token
+
+	elif [[ ! $step_token =~ / ]]; then
+	  # Steps in a plugin (idx>=1) replace existing steps if the
+	  # augmentation method is not specified.
+	  step_token=replace/$step_token
 	fi
-      fi
 
-      unset at_overload_steps
-      if [[ ! -v at_steps ]]; then
-	unset to
-      else
-	to=late_
-      fi
-      source "$dir"/meta
+	augment=${step_token%/*}
+	step_name=${step_token##*/}
 
-      eval to_steps=\(\"\${at_${to}steps[@]}\"\)
-      for step in "${to_steps[@]}" "${at_overload_steps[@]}"; do
-	eval ats_${step%%:*}_dir=\$dir
-      done
-      if [[ ! -v ats_build_dir ]]; then
-	# If it's not set, this is also the first time include_meta is being
-	# called so assume $dir is $at_lib/atwan/$at_exe
-	ats_build_dir=$dir
-      fi
-    done
+	# This stops plugins defining new steps (until I can work out how to do
+	# it without creating a legacy nightmare).
+	if [[ ! -v ats_${step_name}_sources && $augment != new ]]; then
+	  echo $plugin attempted to $augment-augment a non-existent $step_name. >&2
+	  return 1
+	fi
+
+	# Create the run-list for each step as an ordered list of plugins.
+	# Plugins which replace a step with their own implementation simply
+	# reset the list to consist of itself, pre and post prepend and append
+	# the plugin to the list.
+	#
+	# The subdirectory of each plugin's step implementation to run is
+	# maintained elsewhere (in the variable who's name is computed and
+	# stored in ugly name) and the plugin is responsible for determining
+	# which, if any, other parts of itself are executed.
+	case "$augment" in
+	  new|replace)
+	    eval ats_${step_name}_sources=\(\$plugin_dir\)
+	    ugly_name=atsp_${step_name}_${plugin_dir//[^a-zA-Z]/__}_subdirs
+	    ### TODO: Save each plugin's $step_message if it sets one for display later.
+	    if [[ $augment = new ]]; then
+	      eval $ugly_name=\(.\)
+	      push at_order "$step_name: $step_message"
+	    else
+	      eval $ugly_name=\(\$subdir \"\${$ugly_name[@]}\"\)
+	    fi
+	    ;;
+
+	  pre|before)
+	    eval ats_${step_name}_sources=\(\$plugin_dir \"\${ats_${step_name}_sources[@]}\"\)
+	    ;;
+
+	  post|after)
+	    eval ats_${step_name}_sources=\(\"\${ats_${step_name}_sources[@]}\" \$plugin_dir\)
+	    ;;
+	esac
+      done # for step_full
+    done # for plugin
   }
 
 
-  # Calculate and echo the full path to the file defining the step named in the
-  # first argument. This basically lets a more specific file definied within a
-  # release override the regular one.
+  # Eh what? This is called after the CLI is checked. It can be overriden by
+  # the global meta file (and, later, the release meta file) so it has to be
+  # defined before that gets parsed.
 
-  locate_step() {
-    step=$1
+  further_checks() { return 0; }
 
-    eval search_dir=\$ats_${step}_dir
-
-    # Relative paths are to the current directory
-    if [[ ! $search_dir =~ ^/ ]]; then
-      search_dir=$PWD/$search_dir
-    fi
-
-    if [[ -v at_release ]]; then
-      search_dir[1]=${search_dir[0]}/$at_release
-    fi
-
-    unset found
-    for path in "${search_dir[@]}"; do
-      if [[ -r $path/$step ]]; then found=$path; fi
-      # Keep going to the release overrides the global
-    done
-    if [[ ! -v found ]]; then
-      echo "$search_dir/$step" does not exist for step $step or is unreadble. >&2
-      return 1
-    fi
-
-    echo "$found"
-  }
 
 
   # Move the temporary file given as the argument to $at_out_file, obeying
@@ -257,6 +313,13 @@ EOF
 
   #{{{
 
+
+  # Clean slate
+
+  unset at_force at_work_dir at_cache_dir at_out_file at_release at_order
+  for letter in {a..z} {A..Z}; do unset at_optarg_$letter; done
+
+
   # Determine the procedure name
 
   at_exe=$(basename "$0")
@@ -281,35 +344,9 @@ EOF
   fi
 
 
-  # The build step does not need to (and should not) be defined in the meta
-  # files, but it must always occur (last) so it is treated specially when
-  # looping through steps.
+  # Do the needful
 
-  at_step_build='build: Build the output file'
-
-
-  # Load plugins
-
-  oIFS=$IFS IFS=:
-  # Get bash to do the string->array heavy lifting
-  at_plugins_search=($at_plugins)
-  IFS=$oIFS
-  unset at_plugins
-  for dir in "${at_plugins_search[@]}"; do
-    if [[ ! $dir =~ ^/ ]]; then
-      dir=$at_lib/$dir
-    fi
-    if [[ -e $dir/$at_exe/meta ]]; then
-      push at_plugins "$dir/$at_exe"
-    fi
-  done
-
-  further_checks() { return 0; }
-  # Eh what? This is called after the CLI is checked. It can be overriden by
-  # the global meta file (and, later, the release meta file) so it has to be
-  # defined before that gets parsed.
-
-  include_meta "$at_lib/atwan/$at_exe" "${at_plugins[@]}"
+  load_plugins
 
   #}}}
 
@@ -317,13 +354,9 @@ EOF
 
   #{{{
 
-  # Clean slate
-  unset at_force at_work_dir at_cache_dir at_out_file at_release
-  for letter in {a..z} {A..Z}; do unset at_optarg_$letter; done
-
   # Calculate getopt option string
   at_cli_getopts='fw:c:o:r:'
-  for step in "${at_steps[@]}" "$at_step_build"; do
+  for step in "${at_order[@]}"; do
     step_name=${step%%:*} step_message=${step#*:}
     if [[ -v ats_${step_name}_getopts ]]; then
       eval at_cli_getopts=\"\$at_cli_getopts\$ats_${step_name}_getopts\"
@@ -373,11 +406,13 @@ EOF
     ((at_getopt_fail+=1))
   fi
 
-  # Now that the release is known, its metadata can be included. That it is so
-  # late in the process means if the release metadata does something more
-  # exotic than set some defaults or the like, you're doing it wrong.
+  # Now that the release is known, its metadata can be included. That it is
+  # parsed after the command-line arguments have been processed means that this
+  # metadata can't affect them except to set or change defaults.
+  #
+  # Release metadata cannot affect the usage/help display.
 
-  include_meta "$at_lib/atwan/$at_exe/$at_release" "${at_plugins[@]/%//$at_release}"
+  load_plugins "$at_release"
 
   # If a plugin defines a command-line option it'll end up in
   # at_optarg_$letter. If defaults are defined, they are set here. The
@@ -439,7 +474,10 @@ EOF
 
   done
 
-  # Perform any checks defined in the global meta file
+  # Perform any checks defined in the meta file. Unfortunately only the last
+  # one is parsed because of how bash works, but if there's a need for
+  # something more complicated than what this offers there are probably better
+  # ways to achieve your goal.
 
   if ! further_checks; then
     ((at_getopt_fail+=$?))
@@ -464,28 +502,31 @@ EOF
   at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
   atexit 'chmod +rw -R "$at_build_dir"; rm -fr "$at_build_dir"'
 
-  # Loop through all the steps. If the step file is executable, source it and
-  # leave it alone. Otherwise copy it as is to the build directory and append
-  # the step name to $step_result.
+  # Loop through all the steps.
+
+  # For each step in at_order there is a list of plugins in ats_${step}_sources
+  # For each plugin there is a list of subdirectories in atsp_${step}_${plugindir}_order
+  # Each of ats_S_s must be run in turn
+  # Only the first of atsp_S_P_o, the list is for bookkeeping.
+  # Save it all into some nicely-named variables
 
   unset result
   count=0
-  for step in "${at_steps[@]}" "${at_late_steps[@]}" "$at_step_build"; do
+  for step in "${at_order[@]}"; do
     step_name=${step%%:*} step_message=${step#*:}
 
     echo
     ((count+=1))
     eval echo $count\\\) $step_message ## eval for variable interpolation
 
-    at_step_dir=$(locate_step "${step_name}")
+    eval ats_this_sources=\(\"\${ats_${step_name}_sources[@]}\"\)
+    for plugin_dir in "${ats_this_sources[@]}"; do
+      ugly_name=atsp_${step_name}_${plugin_dir//[^a-zA-Z]/__}_subdirs
+      eval subdir=\$$ugly_name
+      at_step_dir=$plugin_dir/$at_exe/$subdir
 
-    if [[ -x $at_step_dir/$step_name ]]; then
       source "$at_step_dir/$step_name"
-    else
-      # Existence has already been verified.
-      cp "$at_step_dir/$step_name" "$at_build_dir"
-      push step_result "$step_name"
-    fi
+    done
   done
 
   #}}}

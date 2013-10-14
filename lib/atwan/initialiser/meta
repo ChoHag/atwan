@@ -34,6 +34,8 @@ at_steps=(
 
   'trust:            Establish trust:'
   'configuration:    Configure configuration management:'
+
+  'build:            Build the initialiser package ISO.'
 )
 
 at_out_file_default=initialiser--\$at_optarg_n.iso

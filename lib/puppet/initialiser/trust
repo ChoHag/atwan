@@ -15,11 +15,11 @@ fi
 if [[ -v at_optarg_P ]]; then
   cmd="ssh $at_optarg_P"
   $cmd puppet cert generate $at_optarg_n
-  $cmd cat \"\$(puppet config print cacert)\" >"$at_build_dir"/puppet.ca
-  $cmd cat \"\$(puppet config print certdir)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.cert
+  $cmd cat \"\$\(puppet config print cacert\)\" >"$at_build_dir"/puppet.ca
+  $cmd cat \"\$\(puppet config print certdir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.cert
   touch "$at_build_dir"/puppet.key
   chmod 600 "$at_build_dir"/puppet.key
-  $cmd cat \"\$(puppet config print privatekeydir)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.key
+  $cmd cat \"\$\(puppet config print privatekeydir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.key
 else
   puppet cert generate $at_optarg_n
   cp "$(puppet config print cacert)" "$at_build_dir"/puppet.ca

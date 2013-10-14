@@ -1,1 +1,5 @@
+at_steps=(
+  configuration
+)
+
 at_args_a[2]=http://apt.puppetlabs.com/puppetlabs-release-wheezy.deb

@@ -1,1 +1,7 @@
+at_steps=(
+  stop_initialiser
+  hostname
+  networking
+  software
+)
 at_args_y[2]=http://ftp.debian.org/debian

@@ -11,6 +11,7 @@ at_steps=(
   'initialiser:   Include initialiser script.'
   'signer:        Include trusted GPG verification key.'
   'fixauto:       Finalise the automatic install option.'
+  'build:         Build the gold image installer ISO.'
 )
 
 at_out_file_default=goldimage-installer-\$at_release.iso
