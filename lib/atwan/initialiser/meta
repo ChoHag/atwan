@@ -15,8 +15,13 @@
 # it makes no sense not to override that too.
 
 at_steps=(
+  # Atwan gives you a build directory and that's it.
+  'environment:      Prepare the build environment.'
+
+  # Use mkreadme or there'll be a file called 'readme' which isn't a readme.
+  'mkreadme:         Create a README file.'
+
   'bootstrap:        Prepare a bootstrap image.'
-  'variables:        Set variables.'
   'stop_initialiser: Stop automatic initialiser \(cron\).'
 
   # If this is going to be done, it should be done early. Nothing else should
@@ -34,6 +39,8 @@ at_steps=(
   'trust:            Establish trust:'
   'configuration:    Configure configuration management:'
 
+  'autorun:          Compile the autorun script.'
+  'sign:             Sign all the things.'
   'build:            Build the initialiser package ISO.'
 )
 

@@ -1,0 +1,19 @@
+#!bash
+# sourced within atwan
+#
+# Sign every file included in the initialiser package with GPG and save a list
+# of them in the 'list' file. Uses detached signatures to keep the package size
+# down.
+
+echo Signing the contents of the initialiser image.
+list=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+for file in "$at_build_dir"/*; do
+  if [ -f "$file" ]; then
+    gpg --detach-sign ${at_getopts_k:+--default-key "$at_getopts_k"} "$file"
+    echo "${file##$at_build_dir}" >> "$list"
+  else
+    echo WARNING: Non-file found in build dir: "${file##$at_build_dir}" >&2
+  fi
+done
+sed 's/^\///' <"$list" >"$at_build_dir"/list
+gpg --detach-sign ${at_getopts_k:+--default-key "$at_getopts_k"} "$at_build_dir"/list

@@ -1,0 +1,7 @@
+#!bash
+# sourced within atwan
+#
+# Write a README file into the initialiser package.
+
+echo Writing README.
+cp "$at_step_dir"/README.in "$at_build_dir"/README.Atwan

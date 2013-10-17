@@ -1,0 +1,8 @@
+#!bash
+# sourced within atwan
+#
+# Prepare the environment (filesystem, environment variables, etc.) for
+# building an initialiser package.
+
+# Clean out $at_variables so that it can be a list of autorun variables to save.
+unset at_variables

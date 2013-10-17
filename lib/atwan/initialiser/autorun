@@ -1,0 +1,31 @@
+#!bash
+# sourced within atwan
+#
+# Compile the autorun script which the gold image will execute. This is always
+# the final step before the package is signed and built.
+#
+# Atwan's default gold image script includes a number of shell functions (which
+# may have their functionality overridden by plugins) which use variables set
+# in the initialiser and which the initialiser's autorun can call if necessary.
+
+# Save variables collected while building the initialiser package.
+echo Saving variables.
+for var in "${at_variables[@]}"; do
+  # Eval spits out at_FOO=\"BAR\" so that echo echos the "'s
+  eval echo $var=\\\"\$"$var"\\\"
+done >"$at_build_dir"/variables
+
+echo Compiling autorun.
+cp "$at_step_dir"/autorun.in "$at_build_dir"/autorun
+
+{
+  # This is where the work gets done:
+  echo 'for step in' ${at_result[@]} >>"$at_build_dir"/autorun
+  echo 'do autostep_$step; done' >>"$at_build_dir"/autorun
+}
+
+# This is a just a shitty placeholder
+echo Generating some random noise...
+noise=$( dd if=${rng:-/dev/urandom} bs=1 count=32 | (shasum||md5sum) )
+echo Silenced.
+echo \# noise: "$noise" >>"$at_build_dir"/autorun
