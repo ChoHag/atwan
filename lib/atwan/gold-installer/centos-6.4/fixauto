@@ -1,0 +1,26 @@
+#!bash
+# sourced within atwan
+#
+# Include the contents of the kickstart.early and kickstart.late directories.
+# See preauto for more detail.
+#
+# TODO: This is not automatically logged. See
+# http://wiki.centos.org/TipsAndTricks/KickStart
+
+echo Including atwan.kickstart.
+cp "$at_meta_dir"/kickstart "$at_build_dir"/atwan.kickstart
+
+for section in early:pre late:post; do
+  files=("$at_meta_dir"/kickstart.${section%:*}/*)
+  if [[ ! ${files[0]} =~ /\*$ ]]; then
+    for file in "${files[@]}"; do
+      unset nochroot
+      if [[ $file =~ \.nochroot$ ]]; then
+	nochroot=--nochroot
+      fi
+      echo %${section#*:} $nochroot
+      cat "$file"
+      echo %end
+    done
+  fi
+done >>"$at_build_dir"/atwan.kickstart

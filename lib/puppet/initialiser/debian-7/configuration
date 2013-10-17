@@ -14,6 +14,6 @@ fi
 echo \ \ Puppetlabs repository source package.
 cp "$at_cache_file" "$at_build_dir"/puppetlabs.deb
 
-push step_result puppet_install
+push at_autorun_steps puppet_install
 
 at_step_dir=$at_step_dir/.. source "$at_step_dir/../configuration"

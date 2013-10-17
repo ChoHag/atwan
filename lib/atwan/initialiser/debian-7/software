@@ -15,4 +15,4 @@ else
   echo \ \ APT repository: $at_repo
 fi
 push at_variables at_apt_repo
-push step_result apt
+push at_autorun_steps apt

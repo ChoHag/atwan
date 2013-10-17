@@ -1,0 +1,16 @@
+#!bash
+# sourced within atwan
+#
+# Include each file in the kickstart.early and kickstart.late directories as a
+# %pre or %post section in the kickstart file. If the filename ends in
+# '.nochroot' then the --nochroot option is added (files without it are run
+# after chroot()ing to the target's / filesystem).
+
+source "$at_step_dir/../preauto" # it mkdir()s $at_meta_dir
+
+cp "$at_step_dir"/kickstart.in "$at_meta_dir"/kickstart
+mkdir "$at_meta_dir"/kickstart.early "$at_meta_dir"/kickstart.late
+
+# Remove the network device settings from the gold image template.
+echo 'rm -f /mnt/sysimage/etc/udev/rules.d/70-persistent-net.rules' \
+  >"$at_meta_dir"/kickstart.late/preauto-rm-udev-net

@@ -1,0 +1,11 @@
+#!bash
+# sourced within atwan
+#
+# Append directives to the debconf preseed being built to create a root user,
+# with the password taken from the -p option, and no regular user accounts.
+
+cat <<EOF >>"$at_meta_dir"/kickstart
+# Only a root user
+authconfig --enableshadow --enablemd5
+rootpw $at_optarg_p
+EOF

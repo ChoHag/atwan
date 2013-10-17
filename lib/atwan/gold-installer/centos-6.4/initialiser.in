@@ -1,0 +1,65 @@
+#!bash
+# atwan/gold-installer/centos-6.4/initialiser.in
+#
+# Atwan gold image initialiser functionality specific to a CentOS 6.4 gold image.
+
+# Remove the initialiser script from cron.
+autostep_stop_initialiser() {
+  rm -f /etc/cron.d/atwan-initialiser
+}
+
+# Configure the hostname in the appropriate locations and restart services to
+# reflect the change live.
+autostep_hostname() {
+  cat >/etc/hosts <<-EOF
+	127.0.0.1 $at_fqdn $at_hostname localhost localhost.localdomain localhost4 localhost4.localdomain4
+	::1       $at_fqdn $at_hostname localhost localhost.localdomain localhost6 localhost6.localdomain6
+EOF
+  cat >/etc/sysconfig/network <<-EOF
+	NETWORKING=yes
+	HOSTNAME=$at_hostname
+EOF
+  hostname "$at_hostname"
+  pkill getty
+  /etc/init.d/rsyslog restart
+}
+
+# Configure eth0.
+autostep_net_ip4() {
+  cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<-EOF
+	DEVICE=eth0
+	ONBOOT=yes
+	TYPE=Ethernet
+	BOOTPROTO=none
+	IPADDR=$at_ip
+	NETMASK=$at_mask
+	GATEWAY=$at_gateway
+EOF
+}
+
+# Configure DNS in /etc/resolv.conf
+autostep_net_dns() {
+  rm -f /etc/resolv.conf
+  if [ -n "$at_dns_search" ]; then
+    echo search $at_dns_search > /etc/resolv.conf
+  fi
+  for ns in $at_dns; do
+    echo nameserver $ns
+  done >> /etc/resolv.conf
+}
+
+# Configure a system-wide HTTP proxy.
+autostep_net_proxy() {
+  (
+    echo http_proxy=\""$at_proxy"\"
+    echo https_proxy=\""$at_proxy"\"
+    echo ftp_proxy=\""$at_proxy"\"
+  ) >> /etc/environment
+
+  echo proxy="$at_proxy" >>/etc/yum.conf
+}
+
+# Bring up the network device
+autostep_net_ifup() {
+  ifup eth0
+}

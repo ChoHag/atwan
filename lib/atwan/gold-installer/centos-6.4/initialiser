@@ -1,0 +1,14 @@
+#!bash
+# sourced within atwan
+#
+# Use the global initialiser step script to include the initialiser script on
+# the CD, then get it copied to /root and added to the system crontab on the
+# newly installed gold image.
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../initialiser" # Copies cron script
+
+cat <<EOF >"$at_meta_dir"/kickstart.late/initialiser.nochroot
+#!/bin/sh
+cp /mnt/source/initialiser-cron /mnt/sysimage/root/atwan-initialiser
+echo '* * * * *' root /root/atwan-initialiser > /mnt/sysimage/etc/cron.d/atwan-initialiser
+EOF

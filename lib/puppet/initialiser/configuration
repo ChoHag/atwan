@@ -36,4 +36,4 @@ fi
 
 push at_variables at_puppet_options
 
-push step_result puppet_start
+push at_autorun_steps puppet_start

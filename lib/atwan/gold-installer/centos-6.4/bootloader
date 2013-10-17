@@ -1,0 +1,15 @@
+#!bash
+# sourced within atwan
+#
+# Duplicate the default entry in isolinux' configuration, adjusting it to use
+# the preseed file and other options debian-installer requires to proceed
+# without prompting the user.
+
+echo Updating isolinux.
+chmod +w "$at_build_dir"/isolinux
+sed '/label linux/{i label auto\
+  menu label Install an automatic gold image (WIPES ALL DATA)\
+  kernel vmlinuz\
+  append initrd=initrd.img ks=cdrom:/atwan.kickstart
+}' -i "$at_build_dir"/isolinux/isolinux.cfg
+chmod -w "$at_build_dir"/isolinux "$at_build_dir"/isolinux/isolinux.cfg

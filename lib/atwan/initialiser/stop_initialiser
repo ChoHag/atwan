@@ -5,5 +5,4 @@
 #
 # This should be done first.
 
-echo The initialiser must be stopped. >&2
-exit 1
+push at_autorun_steps stop_initialiser

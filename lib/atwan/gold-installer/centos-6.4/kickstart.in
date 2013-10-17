@@ -1,0 +1,61 @@
+# Configure Anaconda
+install
+text
+cdrom
+poweroff
+
+# Configure what little 'hardware' must be.
+lang en_US.UTF-8
+keyboard us
+timezone UTC
+
+# Partitioning
+zerombr
+clearpart --all --initlabel
+part /boot --asprimary --size=256 --fstype ext3
+part pv.1 --asprimary --size=6144 --grow
+volgroup vgos --pesize=16384 pv.1
+logvol swap --fstype swap --name=swap0 --vgname=vgos --size=2048
+logvol / --fstype ext4 --name=root --vgname=vgos --size=4096
+
+# Bootloader
+bootloader --location=mbr
+
+# Basic configuration
+skipx
+firewall --disabled
+selinux --permissive
+
+# Packages
+%packages --nobase
+coreutils
+yum
+rpm
+e2fsprogs
+lvm2
+grub
+cronie
+crontabs
+postfix
+-cyrus-sasl
+-info
+-sysstat
+-yum-utils
+-mysql-libs
+-atmel-firmware
+-b43-openfwwf
+-ipw2100-firmware
+-ipw2200-firmware
+-ivtv-firmware
+-iwl1000-firmware
+-iwl3945-firmware
+-iwl4965-firmware
+-iwl5000-firmware
+-iwl5150-firmware
+-iwl6000-firmware
+-iwl6050-firmware
+-libertas-usb8388-firmware
+-rt61pci-firmware
+-rt73usb-firmware
+-zd1211-firmware
+%end

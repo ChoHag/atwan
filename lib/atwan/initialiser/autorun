@@ -20,7 +20,7 @@ cp "$at_step_dir"/autorun.in "$at_build_dir"/autorun
 
 {
   # This is where the work gets done:
-  echo 'for step in' ${at_result[@]} >>"$at_build_dir"/autorun
+  echo 'for step in' ${at_autorun_steps[@]} >>"$at_build_dir"/autorun
   echo 'do autostep_$step; done' >>"$at_build_dir"/autorun
 }
 

@@ -1,0 +1,13 @@
+#!bash
+# sourced within atwan
+#
+# Unpack the public key (stored in gpgpubkey.tar on the gold installer CD,
+# created by the global signer step) to /root.
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../signer" # Exports to gpgpubkey.tar
+
+cat >"$at_meta_dir"/kickstart.late/pubkey.nochroot <<EOF
+mkdir /mnt/sysimage/root/.gnupg;
+chmod 700 /mnt/sysimage/root/.gnupg;
+tar xf /mnt/source/gpgpubkey.tar -C /mnt/sysimage/root/.gnupg
+EOF

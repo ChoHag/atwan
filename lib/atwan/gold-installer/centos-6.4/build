@@ -1,0 +1,14 @@
+#!bash
+# sourced within atwan
+#
+# Pack the build directory back into a CentOS install ISO with an extra README.
+
+echo Writing README.
+cp "$at_step_dir"/../README.in "$at_build_dir"/README.Atwan
+cat "$at_step_dir"/README.in >>"$at_build_dir"/README.Atwan
+
+newiso=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+echo Generating output image in \""$newiso"\".
+xorriso -outdev "$newiso" -map "$at_build_dir" / -boot_image isolinux dir=/isolinux
+
+save_out_file "$newiso"

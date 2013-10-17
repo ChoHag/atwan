@@ -1,6 +1,0 @@
-#!bash
-# sourced within atwan
-#
-# Stop the initialiser script from scanning for initialiser packages.
-
-push step_result stop_initialiser

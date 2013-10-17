@@ -3,11 +3,8 @@
 #
 # Configure networking on the new server.
 
-# The Debian Wheezy plugin uses 4 functions:
-#  * net_ip4
-#  * net_dns
-#  * net_proxy
-#  * net_ifup
+# The Centos 6.4 plugin is exactly the same as Debian's and should be moved to
+# the main plugin (TODO).
 
 at_ip=$at_optarg_i
 at_mask=$at_optarg_m

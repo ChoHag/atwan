@@ -31,4 +31,4 @@ chmod 644 "$at_build_dir"/puppet.cert "$at_build_dir"/puppet.key
 
 at_puppet_trust=embedded
 push at_variables at_puppet_trust
-push step_result puppet_trust
+push at_autorun_steps puppet_trust
