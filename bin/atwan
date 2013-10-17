@@ -47,15 +47,20 @@ fi
       step_name=${step%%:*} step_message=${step#*:}
       nl=$'\n'
       if [[ -v ats_${step_name}_summary ]]; then
-	eval summary=\$ats_${step_name}_summary
+	# Remove blank lines. Crude but effective.
+	eval summary=\${ats_${step_name}_summary//\$nl\$nl/\$nl}
+	# Append a new line to the existing summary if it doesn't already have
+	# one and append this step's summary snippet to it.
 	if [[ $steps_summary =~ $nl$ ]]; then
 	  steps_summary="${steps_summary:+$steps_summary}    $summary"
 	else
 	  steps_summary="${steps_summary:+$steps_summary$nl}    $summary"
 	fi
       fi
+      # Now to do options exactly what was done to summary
+      # Some eval trickery could merge these but with a huge readability cost.
       if [[ -v ats_${step_name}_options ]]; then
-	eval options=\$ats_${step_name}_options
+	eval options=\${ats_${step_name}_options//\$nl\$nl/\$nl}
 	if [[ $steps_options =~ $nl$ ]]; then
 	  steps_options="${steps_options:+$steps_options}  ${step_name^} options:$nl$options"
 	else
@@ -179,7 +184,7 @@ EOF
       fi
 
       full_dir=$plugin_dir/$at_exe/$subdir
-      if [[ -e $full_dir && ! -r $full_dir/meta ]]; then
+      if [[ ! -e $full_dir || ! -r $full_dir/meta ]]; then
 	echo No metadata for plugin "$plugin${subdir:+::$subdir}": Skipping. >&2
 	continue
       fi

@@ -27,7 +27,6 @@ at_steps=(
   'logging:          Configure logging:'
   'networking:       Configure networking:'
   'software:         Configure software management:'
-
   'clock:            Configure hardware clock:'
   'random:           Configure random number generator:'
   'filesystem:       Configure filesystem:'
