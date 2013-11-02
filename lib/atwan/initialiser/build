@@ -5,5 +5,12 @@
 
 newimg=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
 echo Generating initialiser image in \""$newimg"\".
-xorriso -outdev "$newimg" -map "$at_build_dir" /
+case "$at_optarg_F" in
+  iso)
+    xorriso -outdev "$newimg" -map "$at_build_dir" /
+    ;;
+  tgz)
+    tar c -C "$at_build_dir" . | gzip -9c >"$newimg"
+    ;;
+esac
 save_out_file "$newimg"

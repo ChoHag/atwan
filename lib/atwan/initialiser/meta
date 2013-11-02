@@ -136,10 +136,15 @@ ats_configuration_getopts=s:
 at_args_s=(0 string)
 
 # build is always the final step.
-ats_build_summary='[-k <gpg signing key>]'
-ats_build_options='    -k: GPG key id to use to sign the initialiser iso.'
-ats_build_getopts=k:
+ats_build_summary='[-k <gpg signing key>] [-F <format>]'
+IFS='' read -r -d '' ats_build_options <<'EOF' || true
+    -k: GPG key id to use to sign the initialiser iso.
+    -F: Output file format (iso, tgz).
+        Default: iso
+EOF
+ats_build_getopts=k:F:
 at_args_k=(0 gpg:sec)
+at_args_F=(1 string iso)
 
 further_checks() {
   if [[ -v at_optarg_E && ! -v at_optarg_b ]]; then
