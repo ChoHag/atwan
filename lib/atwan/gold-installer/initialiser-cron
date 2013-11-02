@@ -26,7 +26,7 @@ at_lock() {
   echo $$ >/var/lock/initialise.lock
 }
 
-at_unlock() { rm -f /var/lock/initialise.lock }
+at_unlock() { rm -f /var/lock/initialise.lock; }
 
 # Create a temporary directory on/in which to mount/extract the initialiser
 # package, which will be done by another function (named at_mount_<source>)
