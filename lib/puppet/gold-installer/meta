@@ -1,4 +1,0 @@
-# The puppet plugin does not affect the steps of the gold-installer but it does
-# contain functions which the gold image must include.
-#
-# No meta file would be an error because the code to load plugin is really bad.

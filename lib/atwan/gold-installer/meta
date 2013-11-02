@@ -27,13 +27,14 @@ ats_administrator_options='    -p: The superuser'\''s password.'
 ats_administrator_getopts=p:
 at_args_p=(0 string secret)
 
-ats_initialiser_summary='[-d <run-directories>]'
+ats_initialiser_summary='[-i <sources>]'
 IFS='' read -r -d '' ats_initialiser_options <<'EOF' || true
-    -d: A :-seperated list of directories to look for initialiser.run files for
-        inclusion in the initialiser script.
+    -i: A colon-seperated list of locations in which the installed system will
+        look for an initialiser package.
+	Default: cdrom
 EOF
-ats_initialiser_getopts=d:
-at_args_d=(0 list)
+ats_initialiser_getopts=i:
+at_args_i=(0 string cdrom)
 
 ats_signer_summary='-k <keyid>'
 ats_signer_options='    -k: GPG key the gold image will trust.'

@@ -128,13 +128,11 @@ ats_trust_getopts=S:B:
 at_args_S=(0 string /dev/urandom)
 at_args_K=(0 number)
 
-ats_configuration_summary='[-a <cmdb installer>] [-s <cmdb server>]'
+ats_configuration_summary='[-s <cmdb server>]'
 IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
-    -a: The configuration management installation/configuration URL.
     -s: The configuration management server address.
 EOF
-ats_configuration_getopts=a:s:
-at_args_a=(0 string)
+ats_configuration_getopts=s:
 at_args_s=(0 string)
 
 # build is always the final step.

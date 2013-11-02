@@ -1,0 +1,12 @@
+#!bash
+# included in the initialiser script on the gold image.
+
+# Attempt to mount 'the' cd-rom drive.
+#
+at_mount_cdrom() {
+  mount -o ro /dev/cdrom "$at_top"
+}
+
+at_umount_cdrom() {
+  umount "$at_top"
+}

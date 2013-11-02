@@ -1,5 +1,5 @@
 #!bash
-# sourced within atwan-initialiser
+# sourced within atwan
 #
 # The puppet plugin's own trust model entails creating a new keypair using the
 # puppet master (connected to with ssh if the -P option is given) and including
@@ -32,3 +32,16 @@ chmod 644 "$at_build_dir"/puppet.cert "$at_build_dir"/puppet.key
 at_puppet_trust=embedded
 push at_variables at_puppet_trust
 push at_autorun_steps puppet_trust
+
+cat >"$at_meta_dir"/puppet-trust.autorun <<'EVERYTHING'
+autostep_puppet_trust() {
+  if [ "$at_puppet_trust" = embedded ]; then
+    cp -a "$at_top"/puppet.ca "$(puppet agent --configprint localcacert)"
+    chown puppet:puppet "$(puppet agent --configprint localcacert)"
+    cp -a "$at_top"/puppet.cert "$(puppet agent --configprint hostcert)"
+    chown puppet:puppet "$(puppet agent --configprint hostcert)"
+    cp -a "$at_top"/puppet.key "$(puppet agent --configprint hostprivkey)"
+    chown puppet:puppet "$(puppet agent --configprint hostprivkey)"
+  fi
+}
+EVERYTHING

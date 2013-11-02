@@ -3,33 +3,46 @@
 #
 # Configure networking on the new server.
 
-# The Centos 6.4 plugin is exactly the same as Debian's and should be moved to
-# the main plugin (TODO).
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../networking"
 
-at_ip=$at_optarg_i
-at_mask=$at_optarg_m
-at_gateway=${at_optarg_g:-${at_ip%.*}.1}
-echo \ \ IP: $at_ip
-echo \ \ Netmask: $at_mask
-echo \ \ Gateway: $at_gateway
-push at_variables at_ip at_mask at_gateway
-push at_autorun_steps net_ip4
+cat >"$at_meta_dir"/networking.autorun <<'EVERYTHING'
+# Configure eth0.
+autostep_net_ip4() {
+  cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<-EOF
+	DEVICE=eth0
+	ONBOOT=yes
+	TYPE=Ethernet
+	BOOTPROTO=none
+	IPADDR=$at_ip
+	NETMASK=$at_mask
+	GATEWAY=$at_gateway
+EOF
+}
 
-at_dns=$at_optarg_d
-push at_variables at_dns
-echo \ \ DNS Servers: $at_dns
-at_dns_search=${at_optarg_n#*.}
-if [[ "$at_dns_search" ]]; then
-  echo \ \ DNS Search: $at_dns_search
-  push at_variables at_dns_search
-fi
-push at_autorun_steps net_dns
+# Configure DNS in /etc/resolv.conf
+autostep_net_dns() {
+  rm -f /etc/resolv.conf
+  if [ -n "$at_dns_search" ]; then
+    echo search $at_dns_search > /etc/resolv.conf
+  fi
+  for ns in $at_dns; do
+    echo nameserver $ns
+  done >> /etc/resolv.conf
+}
 
-if [[ -v at_optarg_h ]]; then
-  echo \ \ HTTP Proxy: $at_proxy
-  at_proxy=$at_optarg_h
-  push at_variables at_proxy
-  push at_autorun_steps net_proxy
-fi
+# Configure a system-wide HTTP proxy.
+autostep_net_proxy() {
+  (
+    echo http_proxy=\""$at_proxy"\"
+    echo https_proxy=\""$at_proxy"\"
+    echo ftp_proxy=\""$at_proxy"\"
+  ) >> /etc/environment
 
-push at_autorun_steps net_ifup
+  echo proxy="$at_proxy" >>/etc/yum.conf
+}
+
+# Bring up the network device
+autostep_net_ifup() {
+  ifup eth0
+}
+EVERYTHING
