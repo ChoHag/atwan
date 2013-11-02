@@ -166,13 +166,17 @@ EOF
 
   load_plugins() {
     subdir=$1
+    if [[ $# = 0 ]]; then
+      unset at_loaded_plugins
+    fi
 
-    oIFS=$IFS IFS=:
     # Get bash to do the string->array heavy lifting.
-    at_plugins_search=($at_plugins)
+    oIFS=$IFS IFS=:
+    # atwan is not really special, it's just first.
+    at_plugins_search=(atwan $at_plugins)
     IFS=$oIFS
-    for plugin in atwan "${at_plugins_search[@]}"; do
-      # lib/atwan is not really special, it's just first.
+
+    for plugin in "${at_plugins_search[@]}"; do
       if [[ ! $plugin =~ ^/ ]]
 	then plugin_dir=$at_lib/$plugin
 	else plugin_dir=$plugin
@@ -191,6 +195,12 @@ EOF
 
       unset at_steps
       source "$full_dir/meta"
+      if [[ $# = 0 ]]; then
+	push at_loaded_plugins "$plugin:$full_dir"
+	eval at_loaded_plugin_subdirs_$plugin=.
+      else
+	push at_loaded_plugin_subdirs_$plugin $subdir
+      fi
 
       for step_full in "${at_steps[@]}"; do
 	# Each element of at_steps is broken up as follows:
@@ -505,7 +515,8 @@ EOF
   fi
 
   at_build_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
-  atexit 'chmod +rw -R "$at_build_dir"; rm -fr "$at_build_dir"'
+  at_meta_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
+  atexit 'chmod +rw -R "$at_build_dir" "$at_meta_dir"; rm -fr "$at_build_dir" "$at_meta_dir"'
 
   # Loop through all the steps.
 

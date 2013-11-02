@@ -1,5 +1,5 @@
-# The gold-installer procedure takes a vendor's installer image and adjusts is
-# to that it will install a minimal version of the operating system which
+# The gold-installer procedure takes a vendor's installer image and adjusts it
+# so that it will install a minimal version of the operating system which
 # awaits an initialisation package.
 
 at_steps=(

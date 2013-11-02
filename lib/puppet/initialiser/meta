@@ -14,7 +14,7 @@ at_steps=(
 ats_configuration_summary="$ats_configuration_summary [-T <delay>]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
-    -T: Delay between puppet agent certificate requests (--waitforcert)"
+    -T: Delay between puppet agent certificate requests (--waitforcert)
 EOF
 ats_configuration_getopts="${ats_configuration_getopts}T:"
 at_args_T=(0 number 15)

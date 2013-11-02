@@ -6,8 +6,6 @@
 # '.nochroot' then the --nochroot option is added (files without it are run
 # after chroot()ing to the target's / filesystem).
 
-source "$at_step_dir/../preauto" # it mkdir()s $at_meta_dir
-
 cp "$at_step_dir"/kickstart.in "$at_meta_dir"/kickstart
 mkdir "$at_meta_dir"/kickstart.early "$at_meta_dir"/kickstart.late
 
