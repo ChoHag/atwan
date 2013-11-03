@@ -1,0 +1,14 @@
+#!bash
+# sourced within atwan
+#
+# Include CentOS's openssh install steps after setting up the trusted keys.
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../trust"
+
+push at_autorun_steps openssh_install
+cat >"$at_meta_dir"/openssh-install.autorun <<'EVERYTHING'
+autostep_openssh_install() {
+  yum -y install openssh-server
+  /etc/init.d/sshd start
+}
+EVERYTHING

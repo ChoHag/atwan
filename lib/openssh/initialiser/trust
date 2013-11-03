@@ -1,0 +1,63 @@
+#!bash
+# sourced within atwan
+#
+# Create the new server's ssh keys locally then embed both into the initialiser and
+# save the public keys to the filesystem.
+
+echo \ \ Requested ssh key types:
+oIFS=$IFS IFS=:
+keytypes=($at_optarg_S)
+IFS=$oIFS
+for key in "${keytypes[@]}"; do
+  unset opt_$key
+  for opt in ${at_optarg_O[@]}; do
+    if [[ ${opt%%:*} = $key ]]; then
+      if [[ ${opt#$key:} =~ ^[0-9]+$ ]]; then
+	eval opt_$key="-b ${opt#$key:}"
+      else
+	eval opt_$key=${opt#$key:}
+      fi
+    fi
+  done
+
+  echo -n "    $key: "
+  if [[ -v opt_$key ]]; then
+    eval echo \$opt_$key
+  else
+    echo "(default)"
+  fi
+done
+
+### TODO: Make sure there are no lingering or repeat -O options
+
+eval pubkey_prefix=$at_optarg_P
+# Doesn't really need to be a separate loop.
+for type in "${keytypes[@]}"; do
+  eval opt=\$opt_$type # Makes the next line easier on the eye
+  ssh-keygen -q -f "$at_build_dir/openssh-key-$type" -N '' -C '' -t $type $opt
+  echo "    Saving $type public key to $pubkey_prefix$type.pub"
+  cp "$at_build_dir/openssh-key-$type.pub" "$pubkey_prefix$type.pub"
+done
+
+at_openssh_keytypes=${at_optarg_S//:/ }
+push at_variables at_openssh_keytypes
+push at_autorun_steps openssh_trust
+
+cat >"$at_meta_dir"/openssh-trust.autorun <<'EVERYTHING'
+autostep_openssh_trust() {
+  mkdir -p /etc/ssh
+  for type in $at_openssh_keytypes; do
+    if [ $type = rsa1 ]; then
+      dst=/etc/ssh/ssh_host_key
+    else
+      dst=/etc/ssh/ssh_host_${type}_key
+    fi
+    reset_mask=$(umask)
+    umask 333
+    cp "$at_top"/openssh-key-$type.pub "$dst".pub
+    umask 377
+    cp "$at_top"/openssh-key-$type "$dst"
+    umask $reset_mask
+  done
+}
+EVERYTHING
