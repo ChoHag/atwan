@@ -214,37 +214,52 @@ EOF
 	step_token=${step_full%%:*}
 	step_message=${step_full#*:}
 
-	# This conditional statement's clauses make the most sense when read in
-	# order 1, 3, 2; but the logic is easier this way around.
-	if [[ $plugin == atwan && -z $subdir ]]; then
-	  # Steps in atwan (TODO: should check idx==0 not plugin==atwan) are
-	  # always considered new.
-	  step_token=new/$step_token
-
-	elif [[ $plugin != atwan && -n $subdir ]]; then
-	  # Steps in a subdirectory always run in place of the plugin's core
-	  # implementation of that step.
+	# If in a subdir, can only prepend to plugin's runlist (ugly_name)
+	# otherwise if plugin is atwan, step is new
+	# Otherwise step can new if it's new, or augment otherwise, default to replace.
+	if [[ -n $subdir ]]; then
 	  if [[ $step_token =~ / ]]; then
-	    echo Plugin subdirectories \("$plugin::$subdir"\) cannot augment steps. >&2
+	    echo Plugin "$plugin::$subdir" attempted to augment step "${step_token#*/}". >&2
 	    return 1
 	  fi
-	  step_token=::/$step_token
+	  augment=subdir
+	  step_name=$step_token
 
-	elif [[ ! $step_token =~ / ]]; then
-	  # Steps in a plugin (idx>=1) replace existing steps if the
-	  # augmentation method is not specified.
-	  step_token=replace/$step_token
+	else
+	  if [[ $plugin == atwan ]]; then
+	    # Steps in atwan (TODO: should check idx==0 not plugin==atwan) are
+	    # always considered new.
+	    augment=${step_token%%/*}
+	    if [[ -n $augment && $augment != new && $augment != $step_token ]]; then
+	      echo WARNING: Core plugin attempted to augment step ${step_token#*/}. >&2
+	    fi
+	    augment=new
+	    step_name=${step_token#*/}
+
+	  else
+	    if [[ $step_token =~ / ]]; then
+	      augment=${step_token%%/*}
+	      step_name=${step_token#*/}
+	    else
+	      augment=replace
+	      step_name=$step_token
+	    fi
+	  fi
 	fi
 
-	augment=${step_token%/*}
-	step_name=${step_token##*/}
-
-	# This stops plugins defining new steps (until I can work out how to do
-	# it without creating a legacy nightmare).
-	if [[ ! -v ats_${step_name}_sources && $augment != new ]]; then
-	  echo $plugin attempted to $augment-augment a non-existent $step_name. >&2
-	  return 1
-	fi
+	case "$augment" in
+	  new) ;;
+	  subdir|replace|pre|before|post|after)
+	    if [[ ! -v ats_${step_name}_sources ]]; then
+	      echo Plugin "$plugin::$subdir" attempted to override non-existent step "$step_token". >&2
+	      return 1
+	    fi
+	    ;;
+	  *)
+	    echo Invalid augment method: $augment. >&2
+	    return 1
+	    ;;
+	esac
 
 	# Create the run-list for each step as an ordered list of plugins.
 	# Plugins which replace a step with their own implementation simply
@@ -256,16 +271,18 @@ EOF
 	# stored in ugly name) and the plugin is responsible for determining
 	# which, if any, other parts of itself are executed.
 	case "$augment" in
-	  new|replace)
-	    eval ats_${step_name}_sources=\(\$plugin_dir\)
+	  subdir|new|replace)
 	    ugly_name=atsp_${step_name}_${plugin_dir//[^a-zA-Z]/__}_subdirs
-	    ### TODO: Save each plugin's $step_message if it sets one for display later.
-	    if [[ $augment = new ]]; then
+	    if [[ $augment != subdir ]]; then
+	      eval ats_${step_name}_sources=\(\$plugin_dir\)
 	      eval $ugly_name=\(.\)
-	      push at_order "$step_name: $step_message"
 	    else
-	      eval $ugly_name=\(\$subdir \"\${$ugly_name[@]}\"\)
+	      eval $ugly_name=\(\$subdir \${$ugly_name[@]}\)
 	    fi
+	    if [[ $augment == new ]]; then
+	      push at_order "$step_name: $step_message"
+	    fi
+	    ### TODO: Save each plugin's $step_message if it sets one for display later.
 	    ;;
 
 	  pre|before)
