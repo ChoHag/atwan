@@ -387,7 +387,7 @@ EOF
       r) at_release=$OPTARG ;;
       ?)
 	if [[ $arg != \? ]]; then
-	  eval at_optarg_$arg=\${OPTARG:-1}
+	  push at_optarg_$arg ${OPTARG:-1}
 	else
 	  usage
 	  exit 1
@@ -434,34 +434,34 @@ EOF
   # variables are then checked as much as they can be, including whether it
   # is required.
 
-  for letter in {a..z} {A..Z}; do
-    if [[ ! -v at_args_$letter ]]; then continue; fi
-    eval at_args_letter=\(\"\${at_args_$letter[@]}\"\)
 
-    eval arg=\$at_optarg_$letter
+  # nb. Uses at_getopt_fail and at_args_letter
+  verify_argument() {
+    letter=$1
+    index=${2:-0}
 
-    case ${at_args_letter[1]} in
+    case "${at_args_letter[1]}" in
       number|string)
-	if [[ -z $arg && -n ${at_args_letter[2]} ]]; then
+	if [[ -z ${arg[$index]} && -n ${at_args_letter[2]} ]]; then
 	  # Set the default if appropriate
-	  eval at_optarg_$letter=\${at_args_letter[2]}
+	  eval at_optarg_$letter[$index]=\${at_args_letter[2]}
 	fi
-	if [[ $arg && ${at_args_letter[1]} == 'number' \
-	      && ! $arg =~ ^[0-9]+$ ]]
+	if [[ ${arg[$index]} && ${at_args_letter[1]} == 'number' \
+	      && ! ${arg[$index]} =~ ^[0-9]+$ ]]
 	then
-	  echo "$arg" is not a number. >&2
+	  echo "${arg[$index]}" is not a number. >&2
 	  ((at_getopt_fail+=1))
 	fi
 	;;
 
       gpg:*)
-	if [[ -n $arg ]]; then
-	  if ! gpg --list-secret-keys "$arg" >/dev/null; then
+	if [[ -n ${arg[$index]} ]]; then
+	  if ! gpg --list-secret-keys "${arg[$index]}" >/dev/null; then
 	    if [[ ${at_args_letter[1]%:*} == sec ]]; then
-	      echo Cannot find secret key \""$arg"\". >&2
+	      echo Cannot find secret key \""${arg[$index]}"\". >&2
 	      ((at_getopt_fail+=1))
 	    else
-	      echo WARNING: Secret key for requested public key \""$arg"\" is not available. >&2
+	      echo WARNING: Secret key for requested public key \""${arg[$index]}"\" is not available. >&2
 	    fi
 	  fi
 
@@ -473,12 +473,33 @@ EOF
 	      | awk -F: '$1=="sec" {print " * " $5 " " $10}' >&2
 	    ((at_getopt_fail+=1))
 	  else
-	    eval at_optarg_$letter=\$keys
+	    eval at_optarg_$letter[$index]=\$keys
 	  fi
 	fi
 	;;
 
     esac
+  }
+
+  for letter in {a..z} {A..Z}; do
+    if [[ ! -v at_args_$letter ]]; then continue; fi
+    eval at_args_letter=\(\"\${at_args_$letter[@]}\"\)
+
+    eval arg=\(\${at_optarg_$letter[@]}\)
+
+    if [[ ${at_args_letter[1]} =~ ^multi-(.*) ]]; then
+      at_args_letter[1]=${BASH_REMATCH[1]}
+      if [[ ${#arg[@]} -ge 1 ]]; then
+	for i in ${!arg[@]}; do
+	  verify_argument $letter $i
+	done
+      else
+	verify_argument $letter 0
+      fi
+    else
+      verify_argument $letter 0
+    fi
+
 
     if [[ ! -v at_optarg_$letter ]]; then
       if [[ ${at_args_letter[0]} != 0 ]]; then
