@@ -3,7 +3,7 @@
 #
 # Configure configuration management on the new server.
 
-if [[ ! ( -v at_optarg_a || -v at_optarg_s ) ]]; then
+if [[ ! -v at_optarg_s ]]; then
   echo \ \ No.
   return 0
 fi

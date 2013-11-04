@@ -128,12 +128,12 @@ ats_trust_getopts=K:G:
 at_args_K=(0 string /dev/urandom)
 at_args_G=(0 number)
 
-ats_configuration_summary='[-s <cmdb server>]'
+ats_configuration_summary='[-M <cmdb server>]'
 IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
-    -s: The configuration management server address.
+    -M: The configuration management server address.
 EOF
-ats_configuration_getopts=s:
-at_args_s=(0 string)
+ats_configuration_getopts=M:
+at_args_M=(0 string)
 
 # build is always the final step.
 ats_build_summary='[-k <gpg signing key>] [-F <format>]'

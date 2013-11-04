@@ -7,10 +7,10 @@
 #
 # The -E option is mandatory until I create something to act as its default.
 
-if [[ -v at_optarg_b && -v at_optarg_s ]]; then
+if [[ -v at_optarg_b && -v at_optarg_M ]]; then
   echo Maybe in the future it will make sense to connect to a puppet master on >&2
   echo a bootstrapped note, but not now.  >&2
-  echo 'The bootstrap (-b) and cmdb server (-s) options are incompatible.' >&2
+  echo 'The bootstrap (-b) and cmdb server (-M) options are incompatible.' >&2
   exit 1
 fi
 
@@ -24,14 +24,14 @@ if [[ -v at_optarg_b ]]; then
 else
   at_puppet_options="agent --verbose"
 
-  if [[ -v at_optarg_s ]]; then
-    at_puppet_options="$at_puppet_options --server $at_optarg_s"
+  if [[ -v at_optarg_M ]]; then
+    at_puppet_options="$at_puppet_options --server $at_optarg_M"
   fi
   if [[ -v at_optarg_T ]]; then
     at_puppet_options="$at_puppet_options --waitforcert $at_optarg_T"
   fi
 
-  echo \ \ Puppet Master${at_optarg_s:+: $at_optarg_s}
+  echo \ \ Puppet Master${at_optarg_M:+: $at_optarg_M}
 fi
 
 push at_variables at_puppet_options
