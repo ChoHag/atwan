@@ -1,7 +1,8 @@
 = Automation Thing Without A Name =
 
-Atwan automates the steps of installing an operating system to a server or
-virtual machine and setting up configuration management on the new host.
+Atwan automates the steps required to install an operating system on a server
+or virtual machine, which may then be used as a gold image or template, and
+setting up configuration management on the new (possibly cloned) host securely.
 
 This is an extremely early release. A lot of functionality has not been worked
 out and much is likely to change.
@@ -19,18 +20,22 @@ work-in-progress. Don't trust it.
 Atwan does not configure nodes on its own. It installs an operating system,
 gives a new server its identity (ie. hostname) and sets up the software
 necessary to be configured by a trusted 3rd party, eg. a puppet master or chef
-server, thus atwan is useless on its own - it requires a collection of puppet
-manifests, chef recipes or some other means of auto-configuration. There are
-plans which should not be counted on to include a lowest-common-denominator
-trust model built around ssh keys.
+server. The basic Atwan initialiser installs openssh with a known private key
+(the public counterpart is saved locally so that it can be included in
+known_hosts files) and includes specified user public keys in the new server's
+/root/.ssh/authorized_keys file.
 
-  # Prepare the installer.
+Plugins, explained below, are used to replace this method with one suitable for
+Puppet, Chef or the CMDB of your choice.
+
+  # Prepare the installer. Change debian-7 to centos-6.4 (here and below) to
+  # install CentOS instead.
   atwan gold-installer -r debian-7
 
   # Use the installer to create the gold iamge.
   MB=$((8 * 1024))
   dd if=/dev/zero of=gold.img bs=1048576 seek=$(($MB - 1)) count=1
-  kvm -m 2048 -drive if=virtio,file=gold.img -cdrom goldimage-installer-centos-6.4.iso
+  kvm -m 2048 -drive if=virtio,file=gold.img -cdrom goldimage-installer-debian-7.iso
 
   # Prepare an ISO (*) signed using GPG which configures the gold image.
   atwan initialiser -r debian-7 -n foo -i 10.0.0.5 -d 8.8.8.8
@@ -41,15 +46,19 @@ trust model built around ssh keys.
     # Or insert the CD using the qemu console after the VM is started:
   > change ide1-cd0 initialiser--foo.iso
 
+
+  # Alternative nodes:
+
   # Build a puppetmaster with the bootstrap (+) in $HOME/atwan/bootstrap
   at_plugins=puppet atwan initialiser -r debian-7 -n bar -i 10.0.0.6 -d 8.8.8.8 \
     -b -E $HOME/atwan/bootstrap
 
   # Prepare an ISO which uses puppet.
-  #  * Uses ssh to connect to the puppet CA at puppetca.example.com
   #  * The node will talk to the puppet master at puppetmaster.example.com
+  #  * Atwan prepares keys using the puppet CA at puppetca.example.com
   at_plugins=puppet atwan initialiser -r debian-7 -n bar -i 10.0.0.7 -d 8.8.8.8 \
-    -s puppetmaster.example.com -P puppetca.example.com
+    -M puppetmaster.example.com -K puppetca.example.com
+
 
 [*] Because VMWare.
 
@@ -74,9 +83,10 @@ shaving a mighty yak.
    called ($0), or the first argument if that is 'atwan', to determine which
    sequence of steps to run.
 
- * The steps of a sequence are defined or overridden by a subdirectory inside
-   each plugin. Each subdirectory contains a 'meta' file which is sourced by
-   bash and must set the at_steps variable (an array).
+ * The newly-discovered name, with 'atwan-' stripped off the beginning if
+   it is there, is the name of the directory to look for at the top of each
+   plugin, in which is a file called 'meta' which is sourced by bash and
+   describes that process, or any changes the plugin is making to that process.
 
  * The list of plugins to load is specified by the at_plugins environment
    variable, which is a list of paths separated by a colon (:). Relative paths
@@ -89,14 +99,12 @@ shaving a mighty yak.
 
    To find out what 'atwan foo' does, look at meta in $at_lib/atwan/foo
 
- * Operating system releases are handled with by a subdirectory of the sequence
-   directory if that operating system requires further refinement of any steps
-   of a sequence. The release is selected with the -r option, not the
-   at_plugins environment variable.
-
- * The atwan script defines some command-line arguments to look for and the
-   meta files define the rest. These are used to parse the command-line
-   arguments and display a usage statement if an error occurs doing so.
+ * If a particular operating system release requires further refinement to the
+   list of steps or changes, they are defined in a subdirectory of the plugin's
+   main process directory named after the value to the '-r' flag. This
+   directory must also contain a 'meta' file but is not parsed until after the
+   plugins are loaded, and critically its contents are not available when
+   displaying the usage statement.
 
 
 == Gold Images ==
@@ -104,19 +112,18 @@ shaving a mighty yak.
 Atwan creates a gold image which is then cloned for each node. The gold image
 includes a trusted gpg public key and looks for a signed package (usually a CD)
 which includes a configuration script to run. The gold-installer command
-downloads a vendor's installer and modifies it to install the operating system
-without user input and including the gpg key and script as stated,
+downloads a vendor's installer, includes the gpg key and script, and modifies
+it to install them and the operating system without user input.
 
-The superuser password, gpg key and installer URL (and OS release as standard)
-can all be specified on the command-line.
+The superuser password, gpg key and installer URL (and OS release) can all be
+specified on the command-line.
 
 The gold-installer command requires only that 'an initialiser' be installed on
-the gold image. The atwan plugin (ie. the default) has an initialiser script
-which consists of shell functions taken from an initialiser.in file in each
-plugin's gold-installer directory (and release subdirectory), and then runs
-them. One of the first of these sets variables from a file included in the
-initialiser package. There is currently no way to include arbitrary code to
-execute in the initialiser package, although there was. Oops.
+the gold image. The atwan plugin's initialiser script is a sequence of shell
+functions which are defined in initialiser.in files in each gold-installer
+plugin used. Ultimately this sources (not executes) a signed script in the
+initialiser package called autorun, built up by the components of the plugins'
+initialiser steps.
 
 
 == Initialiser ==
