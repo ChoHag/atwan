@@ -1,12 +1,30 @@
 #!bash
 # sourced within atwan
 #
-# Configure configuration management on the new server.
+# Include the designated public keys in the new server's
+# /root/.ssh/authorized_keys file, or use the given authorized_keys file
+# provided.
 
-if [[ ! -v at_optarg_s ]]; then
+if [[ -v at_optarg_M ]]; then
+  for file in "${at_optarg_M[@]}"; do
+    echo \ \ Including "$file".
+    cat "$file" >>"$at_build_dir"/openssh-authorized_keys
+  done
+elif [[ -v at_optarg_H ]]; then
+  echo \ \ From "$at_optarg_H".
+  cp "$at_optarg_H" "$at_build_dir"/openssh-authorized_keys
+else
   echo \ \ No.
   return 0
 fi
 
-echo '####' I am too lazy to write this bit. >&2
-return 1
+push at_autorun_steps openssh_authorized_keys
+cat >"$at_meta_dir"/openssh-authorized_keys.autorun <<'EVERYTHING'
+autostep_openssh_authorized_keys() {
+  reset_mask=$(umask)
+  umask 077
+  mkdir -p /root/.ssh
+  cp "$at_top"/openssh-authorized_keys /root/.ssh/authorized_keys
+  umask "$reset_mask"
+}
+EVERYTHING
