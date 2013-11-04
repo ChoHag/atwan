@@ -117,16 +117,16 @@ ats_random_options='    -e: If set, describes how to configure entropy/the PRNG'
 ats_random_getopts=e:
 at_args_l=(0 string)
 
-ats_trust_summary='[-S <shared secret>] [-K <bits>]'
+ats_trust_summary='[-K <secret key>] [-G <key size>]'
 IFS='' read -r -d '' ats_trust_options <<'EOF' || true
-    -S: The secret, or the method to create it, which will be shared
+    -K: The secret, or the method to create it, which will be shared
         between the central authority and the new server.
-    -K: How many _bytes_ to consome from the shared secret. Not bits.
+    -G: How many _bytes_ to consume from the shared secret. Not bits.
         Default is the whole thing, or 256 (2048 bits) if it's /dev/(u)random
 EOF
-ats_trust_getopts=S:B:
-at_args_S=(0 string /dev/urandom)
-at_args_K=(0 number)
+ats_trust_getopts=K:G:
+at_args_K=(0 string /dev/urandom)
+at_args_G=(0 number)
 
 ats_configuration_summary='[-s <cmdb server>]'
 IFS='' read -r -d '' ats_configuration_options <<'EOF' || true

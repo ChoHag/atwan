@@ -2,19 +2,19 @@
 
 at_steps=( trust )
 
-ats_trust_summary='[-S <key types>] [-O <key options>]'
+ats_trust_summary='[-K <key types>] [-G <key options>] [-O <save path prefix>]'
 IFS='' read -r -d '' ats_trust_options <<'EOF' || true
-    -S: The key types to be generated specified as a colon-separated list.
+    -K: The key types to be generated specified as a colon-separated list.
         Default: ecdsa:rsa:dsa
-    -O: Any additional options to pass to the ssh-keygen command for each key
-	type. Multiple -O options can be given with an argument of the key type
+    -G: Any additional options to pass to the ssh-keygen command for each key
+	type. Multiple -G options can be given with an argument of the key type
 	(eg. ecdsa) followed by a colon and the _quoted_ string to append to
 	ssh-keygen, or a plain integer which to specify the keysize in bits.
-	  eg. -O ecdsa:521 -O rsa:"-b 4096 -C 'A large key with a comment'"
-    -P: Location to save the public keys. "<type>.pub" is appended.
+	  eg. -G ecdsa:521 -O rsa:"-b 4096 -C 'A large key with a comment'"
+    -O: Location to save the public keys. "<type>.pub" is appended.
         Default: initialiser--<fqdn>-openssh-
 EOF
-ats_trust_getopts=S:O:P:
-at_args_S=(1 string ecdsa:rsa:dsa)
-at_args_O=(0 multi-string)
-at_args_P=(1 string initialiser--\$at_optarg_n-openssh-)
+ats_trust_getopts=K:G:O:
+at_args_K=(1 string ecdsa:rsa:dsa)
+at_args_G=(0 multi-string)
+at_args_O=(1 string initialiser--\$at_optarg_n-openssh-)

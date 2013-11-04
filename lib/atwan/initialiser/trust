@@ -6,19 +6,19 @@
 echo '### This bit doesn'\'' work yet.' >&2
 return 1
 
-if [[ ! -v at_optarg_S ]]; then
+if [[ ! -v at_optarg_K ]]; then
   echo \ \ No.
   return
 fi
 
-if [[ $at_optarg_S =~ ^/ ]]; then
-  dd="dd if=$at_optarg_S \$bs"
+if [[ $at_optarg_K =~ ^/ ]]; then
+  dd="dd if=$at_optarg_K \$bs"
 else
-  dd="$at_optarg_S | dd \$bs"
+  dd="$at_optarg_K | dd \$bs"
 fi
 
-if [[ -v at_optarg_K ]]; then
-  bs=bs=$at_optarg_K
+if [[ -v at_optarg_G ]]; then
+  bs=bs=$at_optarg_G
 else
   unset bs
 fi

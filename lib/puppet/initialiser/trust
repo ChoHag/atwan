@@ -2,7 +2,7 @@
 # sourced within atwan
 #
 # The puppet plugin's own trust model entails creating a new keypair using the
-# puppet master (connected to with ssh if the -P option is given) and including
+# puppet master (connected to with ssh if the -K option is given) and including
 # the private part in the initialiser package.
 
 if [[ -v at_optarg_b ]]; then
@@ -12,8 +12,8 @@ if [[ -v at_optarg_b ]]; then
   return
 fi
 
-if [[ -v at_optarg_P ]]; then
-  cmd="ssh $at_optarg_P"
+if [[ -v at_optarg_K ]]; then
+  cmd="ssh $at_optarg_K"
   $cmd puppet cert generate $at_optarg_n
   $cmd cat \"\$\(puppet config print cacert\)\" >"$at_build_dir"/puppet.ca
   $cmd cat \"\$\(puppet config print certdir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.cert
