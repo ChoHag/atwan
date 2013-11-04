@@ -7,8 +7,6 @@
 # shell-like scripts which get executed at the beginning or end of the
 # installer.
 
-source "$at_step_dir/../preauto" # it mkdir()s $at_meta_dir
-
 ##### This includes the hard-coded amd64 kernel choice
 cp "$at_step_dir"/preseed-template "$at_meta_dir"/preseed
 mkdir "$at_meta_dir"/preseed.early "$at_meta_dir"/preseed.late

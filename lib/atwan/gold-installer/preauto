@@ -1,8 +1,2 @@
 #!bash
 # sourced within atwan
-#
-# Create a directory for working files which should not be included in the
-# build directory.
-
-at_meta_dir=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"} -d)
-atexit 'chmod +rw -R "$at_meta_dir"; rm -fr "$at_meta_dir"'

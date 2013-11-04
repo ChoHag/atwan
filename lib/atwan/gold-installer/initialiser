@@ -3,27 +3,53 @@
 #
 # Ensure the installed gold image will scan for and use an initialisation file.
 
-# Copy initialiser-cron to the build directory, including any initialiser.in
-# files in place of the ### INCLUDE line with an appropriate header/footer, but
-# do not get it activated on the new server it as how that's done is dependent
-# on the platform. This just ensures it's included in the installer CD.
+# Copy initialiser-cron to the build directory, with the line '### INCLUDE'
+# replaced with the concatenated contents of each active plugin's
+# initialiser.in file, if they have one, and the functions required to search
+# for an initialiser package.
 
-while read -r line; do
-  if [[ $line =~ ^###\ INCLUDE$ ]]; then
-    echo '### BEGIN INCLUDE'
-    # Plugins can replace functions exported by the core procedure by simply
-    # redefining them due to the order in which they are included here.
-    for dir in "$at_lib/atwan/$at_exe" "${at_plugins[@]}"; do
-      for subdir in . $at_release; do
-	if [[ -e $dir/$subdir/initialiser.in ]]; then
-	  cat $dir/$subdir/initialiser.in
-	fi
-      done
-    done
-    echo '### END INCLUDE'
-  else
+### TODO: Check if all the sources get defined.
+oIFS=$IFS IFS=:
+at_sources=($at_optarg_i)
+IFS=$oIFS
+
+while IFS='' read -r line; do
+  if [[ ! $line =~ ^###\ INCLUDE$ ]]; then
     echo "$line"
+    continue
   fi
+
+  echo '### BEGIN INCLUDE'
+
+  echo "at_initialiser_sources='${at_sources[@]}'"
+
+  # Plugins can replace functions exported by the core procedure by simply
+  # redefining them due to the order in which they are included here.
+  for plugin_full in "${at_loaded_plugins[@]}"; do
+    plugin=${plugin_full%%:*} dir=${plugin_full#*:}
+
+    eval subdirs=\(\${at_loaded_plugin_subdirs_$plugin[@]}\)
+    set|grep ^subdir >&2
+    for dir in ${subdirs[@]/#/${dir%/}/}; do
+
+      if [[ -e $dir/initialiser.in ]]; then
+	echo "###   BEGIN INCLUDE $plugin: $dir/initialiser.in"
+	cat $dir/initialiser.in
+	echo "###   END INCLUDE $plugin: $dir/initialiser.in"
+      fi
+
+      # ... and this includes functions to mount the initialiser package
+      for source in ${at_sources[@]}; do
+	if [[ -e $dir/initialiser.mount-$source ]]; then
+	  echo "###   BEGIN INCLUDE $plugin: $dir/initialiser.mount-$source"
+	  cat $dir/initialiser.mount-$source
+	  echo "###   END INCLUDE $plugin: $dir/initialiser.mount-$source"
+	fi
+      done # for source
+    done # for dir
+  done # for plugin_full
+
+  echo '### END INCLUDE'
 done <"$at_step_dir"/initialiser-cron >"$at_build_dir"/initialiser-cron
 
 chmod 755 "$at_build_dir"/initialiser-cron

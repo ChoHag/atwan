@@ -1,0 +1,23 @@
+#!bash
+# sourced within atwan
+#
+# Download the puppetlabs repository installer package and include it in the
+# initialiser.
+
+if [[ $at_optarg_a =~ ^https?: ]]; then
+  cached_download $at_optarg_a
+else
+  at_cache_file=${at_optarg_a#file:}
+fi
+
+echo \ \ Puppetlabs repository source package.
+cp "$at_cache_file" "$at_build_dir"/puppetlabs.deb
+
+push at_autorun_steps install_puppetlabs
+
+cat >"$at_meta_dir"/puppetlabs.autorun <<'EVERYTHING'
+autostep_install_puppetlabs() {
+  dpkg -i "$at_top"/puppetlabs.deb
+  apt-get update
+}
+EVERYTHING

@@ -7,7 +7,10 @@
 # just the URL and is transformed into a complete sources.list line before
 # being included as the at_repo variable.
 
-if [[ $at_optarg_y =~ ' ' ]]; then
+if [[ ! -v at_optarg_y ]]; then
+  echo \ \ No.
+  return 0
+elif [[ $at_optarg_y =~ ' ' ]]; then
   at_apt_repo=$at_optarg_y
   echo \ \ APT source entry: \""$at_repo"\"
 else
@@ -16,3 +19,12 @@ else
 fi
 push at_variables at_apt_repo
 push at_autorun_steps apt
+
+cat >"$at_meta_dir"/software.autorun <<'EVERYTHING'
+# Configure a remote apt repository
+autostep_apt() {
+  echo "$at_apt_repo" > /etc/apt/sources.list
+
+  apt-get update
+}
+EVERYTHING

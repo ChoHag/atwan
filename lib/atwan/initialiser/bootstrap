@@ -26,3 +26,12 @@ if [[ -v at_optarg_E ]]; then
 fi
 
 push at_autorun_steps bootstrap
+
+cat >"$at_meta_dir"/bootstrap.autorun <<'EVERYTHING'
+# Extract the bootstrap tarball in /etc. Note that this will walk all over /etc
+# without prejudice so make sure the tarball is safe.
+#
+autostep_bootstrap() {
+  tar xz -C /etc <"$at_top"/etc.tgz
+}
+EVERYTHING

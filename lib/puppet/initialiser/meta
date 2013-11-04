@@ -11,18 +11,18 @@ at_steps=(
   configuration
 )
 
+ats_trust_summary='[-K <puppet ca host>]'
+IFS='' read -r -d '' ats_trust_options <<'EOF' || true
+    -K: The [user@]hostname which, if supplied, is used to connect to a remote
+        puppet CA using ssh.
+EOF
+ats_trust_getopts=K:
+at_args_K=(0 string)
+
 ats_configuration_summary="$ats_configuration_summary [-T <delay>]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
-    -T: Delay between puppet agent certificate requests (--waitforcert)"
+    -T: Delay between puppet agent certificate requests (--waitforcert)
 EOF
 ats_configuration_getopts="${ats_configuration_getopts}T:"
 at_args_T=(0 number 15)
-
-ats_trust_summary='[-P <puppet ca host>]'
-IFS='' read -r -d '' ats_trust_options <<'EOF' || true
-    -P: The [user@]hostname which, if supplied, is used to connect to a remote
-        puppet CA using ssh.
-EOF
-ats_trust_getopts=P:
-at_args_P=(0 string)

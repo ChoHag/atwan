@@ -16,4 +16,5 @@ for file in "$at_build_dir"/*; do
   fi
 done
 sed 's/^\///' <"$list" >"$at_build_dir"/list
+rm -f "$list"
 gpg --detach-sign ${at_getopts_k:+--default-key "$at_getopts_k"} "$at_build_dir"/list
