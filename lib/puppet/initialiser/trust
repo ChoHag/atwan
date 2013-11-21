@@ -2,46 +2,36 @@
 # sourced within atwan
 #
 # The puppet plugin's own trust model entails creating a new keypair using the
-# puppet master (connected to with ssh if the -K option is given) and including
+# puppet master (connected to with ssh if the -A option is given) and including
 # the private part in the initialiser package.
 
 if [[ -v at_optarg_b ]]; then
   # There should be an option to install a bootstrap puppet master with a
   # remote CA. For now assume bootstrap == puppetmaster == implicit trust.
   echo \ \ Bootstrap trust is implicit.
-  return
-fi
 
-if [[ -v at_optarg_K ]]; then
-  cmd="ssh $at_optarg_K"
-  $cmd puppet cert generate $at_optarg_n
-  $cmd cat \"\$\(puppet config print cacert\)\" >"$at_build_dir"/puppet.ca
-  $cmd cat \"\$\(puppet config print certdir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.cert
-  touch "$at_build_dir"/puppet.key
-  chmod 600 "$at_build_dir"/puppet.key
-  $cmd cat \"\$\(puppet config print privatekeydir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.key
 else
-  puppet cert generate $at_optarg_n
-  cp "$(puppet config print cacert)" "$at_build_dir"/puppet.ca
-  cp "$(puppet config print certdir)"/$at_optarg_n.pem "$at_build_dir"/puppet.cert
-  cp "$(puppet config print privatekeydir)"/$at_optarg_n.pem "$at_build_dir"/puppet.key
-  chmod 600 "$at_build_dir"/puppet.key
-fi
-chmod 644 "$at_build_dir"/puppet.cert "$at_build_dir"/puppet.key
-
-at_puppet_trust=embedded
-push at_variables at_puppet_trust
-push at_autorun_steps puppet_trust
-
-cat >"$at_meta_dir"/puppet-trust.autorun <<'EVERYTHING'
-autostep_puppet_trust() {
-  if [ "$at_puppet_trust" = embedded ]; then
-    cp -a "$at_top"/puppet.ca "$(puppet agent --configprint localcacert)"
-    chown puppet:puppet "$(puppet agent --configprint localcacert)"
-    cp -a "$at_top"/puppet.cert "$(puppet agent --configprint hostcert)"
-    chown puppet:puppet "$(puppet agent --configprint hostcert)"
-    cp -a "$at_top"/puppet.key "$(puppet agent --configprint hostprivkey)"
-    chown puppet:puppet "$(puppet agent --configprint hostprivkey)"
+  if [[ -v at_optarg_A ]]; then
+    cmd="ssh $at_optarg_A"
+    $cmd puppet cert generate $at_optarg_n
+    $cmd cat \"\$\(puppet config print cacert\)\" >"$at_build_dir"/puppet.localcacert
+    $cmd cat \"\$\(puppet config print certdir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.hostcert
+    touch "$at_build_dir"/puppet.hostprivkey
+    chmod 600 "$at_build_dir"/puppet.hostprivkey
+    $cmd cat \"\$\(puppet config print privatekeydir\)\"/$at_optarg_n.pem >"$at_build_dir"/puppet.hostprivkey
+  else
+    puppet cert generate $at_optarg_n
+    cp "$(puppet config print cacert)" "$at_build_dir"/puppet.localcacert
+    cp "$(puppet config print certdir)"/$at_optarg_n.pem "$at_build_dir"/puppet.hostcert
+    cp "$(puppet config print privatekeydir)"/$at_optarg_n.pem "$at_build_dir"/puppet.hostprivkey
+    chmod 600 "$at_build_dir"/puppet.hostprivkey
   fi
-}
-EVERYTHING
+  chmod 644 "$at_build_dir"/puppet.localcacert "$at_build_dir"/puppet.hostcert
+
+  at_puppet_trust=embedded
+  push at_variables at_puppet_trust
+fi
+
+if [[ ! -v at_optarg_z ]]; then
+  unset at_continue
+fi

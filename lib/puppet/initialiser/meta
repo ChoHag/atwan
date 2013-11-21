@@ -7,22 +7,27 @@
 # somehow.
 
 at_steps=(
-  trust
-  configuration
+  pre/trust
+  pre/configuration
 )
 
-ats_trust_summary='[-K <puppet ca host>]'
-IFS='' read -r -d '' ats_trust_options <<'EOF' || true
-    -K: The [user@]hostname which, if supplied, is used to connect to a remote
+ats_trust_summary="$ats_trust_summary [-A <puppet ca host>] [-z]"
+IFS='' read -r -d '' ats_trust_options <<EOF || true
+    -A: The [user@]hostname which, if supplied, is used to connect to a remote
         puppet CA using ssh.
+    -z: Continue to perform the trust step in modules loaded after puppet.
+$ats_trust_options
 EOF
-ats_trust_getopts=K:
-at_args_K=(0 string)
+ats_trust_getopts=${ats_trust_getopts}A:z
+at_args_A=(0 string)
 
-ats_configuration_summary="$ats_configuration_summary [-T <delay>]"
+ats_configuration_summary="$ats_configuration_summary [-P <puppet master>] [-T <delay>] [-Z]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
-    -T: Delay between puppet agent certificate requests (--waitforcert)
+    -P: The puppet master address to connect to.
+    -T: Delay between puppet agent certificate requests (--waitforcert).
+    -Z: Continue to perform the trust step in modules loaded after puppet.
 EOF
-ats_configuration_getopts="${ats_configuration_getopts}T:"
+ats_configuration_getopts=${ats_configuration_getopts}P:T:Z
+at_args_P=(0 string)
 at_args_T=(0 number 15)

@@ -127,23 +127,23 @@ IFS='' read -r -d '' ats_trust_options <<'EOF' || true
 	ssh-keygen, or a plain integer which to specify the keysize in bits.
 	  eg. -G ecdsa:521 -O rsa:"-b 4096 -C 'A large key with a comment'"
     -O: Location to save the public keys. "<type>.pub" is appended.
-        Default: initialiser--<fqdn>-openssh-
+        Default: initialiser--<fqdn>-openssh-<type>.pub
 EOF
 ats_trust_getopts=K:G:O:
 at_args_K=(1 string ecdsa:rsa:dsa)
 at_args_G=(0 multi-string)
 at_args_O=(1 string initialiser--\$at_optarg_n-openssh-)
 
-ats_configuration_summary='[-M <ssh public key> | -A <ssh known_hosts file>]'
+ats_configuration_summary='[-s <ssh public key> | -a <ssh known_hosts file>]'
 IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
-    -M: Public key file(s) to include in /root/.ssh/authorized_keys on the new
+    -s: Public key file(s) to include in /root/.ssh/authorized_keys on the new
         node.
-    -A: A complete authorized_keys file for the new server _instead of_ listing
+    -a: A complete authorized_keys file for the new server _instead of_ listing
         individual public key files.
 EOF
-ats_configuration_getopts=M:H:
-at_args_M=(0 multi-string)
-at_args_A=(0 string)
+ats_configuration_getopts=s:a:
+at_args_s=(0 multi-string)
+at_args_a=(0 string)
 
 # build is always the final step.
 ats_build_summary='[-k <gpg signing key>] [-F <format>]'

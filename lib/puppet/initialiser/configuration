@@ -7,11 +7,11 @@
 #
 # The -E option is mandatory until I create something to act as its default.
 
-if [[ -v at_optarg_b && -v at_optarg_M ]]; then
+if [[ -v at_optarg_b && -v at_optarg_P ]]; then
   echo Maybe in the future it will make sense to connect to a puppet master on >&2
   echo a bootstrapped note, but not now.  >&2
-  echo 'The bootstrap (-b) and cmdb server (-M) options are incompatible.' >&2
-  exit 1
+  echo 'The bootstrap (-b) and puppet master (-P) options are incompatible.' >&2
+  return 1
 fi
 
 if [[ -v at_optarg_b ]]; then
@@ -24,28 +24,37 @@ if [[ -v at_optarg_b ]]; then
 else
   at_puppet_options="agent --verbose"
 
-  if [[ -v at_optarg_M ]]; then
-    at_puppet_options="$at_puppet_options --server $at_optarg_M"
+  if [[ -v at_optarg_P ]]; then
+    at_puppet_options="$at_puppet_options --server $at_optarg_P"
   fi
   if [[ -v at_optarg_T ]]; then
     at_puppet_options="$at_puppet_options --waitforcert $at_optarg_T"
   fi
 
-  echo \ \ Puppet Master${at_optarg_M:+: $at_optarg_M}
+  echo \ \ Puppet Master${at_optarg_P:+: $at_optarg_P}
 fi
 
 push at_variables at_puppet_options
 
 push at_autorun_steps puppet_install puppet_start
 
-cat >"$at_meta_dir"/puppet-start.autorun <<'EVERYTHING'
 ### autostep_puppet_install must be defined by a release
-
+cat >"$at_meta_dir"/puppet-start.autorun <<'EVERYTHING'
 autostep_puppet_start() {
-  if [ "$at_bootstrap" -a "$at_bootstrap_files" ]; then
-    for cpspec in $at_bootstrap_files; do
-      cp -a ${cpspec%:*} ${cpspec#*:}
+  if [ "$at_puppet_trust" = embedded ]; then
+    for type in localcacert hostcert hostprivkey; do
+      path=$(puppet agent --configprint $type)
+      parent=$(dirname "$path")
+      mkdir -p "$parent"
+      cp -a "$at_top"/puppet.$type "$path"
+      chown puppet:puppet "$path"
     done
   fi
+
   puppet $at_puppet_options
 }
+EVERYTHING
+
+if [[ ! -v at_optarg_Z ]]; then
+  unset at_continue
+fi

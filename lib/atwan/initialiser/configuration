@@ -5,14 +5,14 @@
 # /root/.ssh/authorized_keys file, or use the given authorized_keys file
 # provided.
 
-if [[ -v at_optarg_M ]]; then
-  for file in "${at_optarg_M[@]}"; do
+if [[ -v at_optarg_s ]]; then
+  for file in "${at_optarg_s[@]}"; do
     echo \ \ Including "$file".
     cat "$file" >>"$at_build_dir"/openssh-authorized_keys
   done
-elif [[ -v at_optarg_H ]]; then
-  echo \ \ From "$at_optarg_H".
-  cp "$at_optarg_H" "$at_build_dir"/openssh-authorized_keys
+elif [[ -v at_optarg_a ]]; then
+  echo \ \ From "$at_optarg_a".
+  cp "$at_optarg_a" "$at_build_dir"/openssh-authorized_keys
 else
   echo \ \ No.
   return 0

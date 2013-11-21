@@ -579,7 +579,11 @@ EOF
       eval subdir=\$$ugly_name
       at_step_dir=$plugin_dir/$at_exe/$subdir
 
+      at_continue=1
       source "$at_step_dir/$step_name"
+      if [[ ! -v at_continue ]]; then
+	break
+      fi
     done
   done
 
