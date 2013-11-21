@@ -404,7 +404,7 @@ EOF
       r) at_release=$OPTARG ;;
       ?)
 	if [[ $arg != \? ]]; then
-	  push at_optarg_$arg ${OPTARG:-1}
+	  push at_optarg_$arg "${OPTARG:-1}"
 	else
 	  usage
 	  exit 1

@@ -4,10 +4,10 @@
 # Download the puppetlabs repository installer package and include it in the
 # initialiser.
 
-if [[ $at_optarg_a =~ ^https?: ]]; then
-  cached_download $at_optarg_a
+if [[ $at_optarg_I =~ ^https?: ]]; then
+  cached_download $at_optarg_I
 else
-  at_cache_file=${at_optarg_a#file:}
+  at_cache_file=${at_optarg_I#file:}
 fi
 
 echo \ \ Puppetlabs repository source package.
