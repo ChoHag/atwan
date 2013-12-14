@@ -8,5 +8,23 @@ if [[ ! -v at_optarg_p ]]; then
   return 0
 fi
 
-echo '####' I am too lazy to write this bit. >&2
-return 1
+# Adaptable crypt?
+if [[ $at_optarg_p == \* ]]; then
+  at_authentication_root_hash=\*
+else
+  if [[ ${at_optarg_p:0:5} == hash: ]]; then
+    at_authentication_root_hash=${at_optarg_p#hash:}
+  else
+    echo 'You can only pass pre-hashed root secrets formatted as "hash:<hashstring>"' >&2
+    return 1
+  fi
+fi
+
+if [[ $at_authentication_root_hash =~ : ]]; then
+  echo root password hash cannot contain : >&2
+  return 1
+fi
+
+at_authentication_root_hash_defang=${at_authentication_root_hash//\//\\/}
+push at_variables at_authentication_root_hash at_authentication_root_hash_defang
+push at_autorun_steps authentication_set_root_password

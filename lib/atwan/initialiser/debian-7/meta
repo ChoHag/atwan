@@ -1,2 +1,2 @@
-at_steps=( hostname networking software trust )
+at_steps=( authentication hostname networking software trust )
 at_args_y[2]=http://ftp.debian.org/debian

@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../authentication"
+
+cat >"$at_meta_dir"/authentication.autorun <<'EVERYTHING'
+# Update root's entry in /etc/shadow. Quick hack because I'm lazy and
+# impatient.
+autostep_authentication_set_root_password() {
+  sed "s/^root:[^:]*/root:$at_authentication_root_hash_defang/" -i.initialiser /etc/shadow
+}
+EVERYTHING
