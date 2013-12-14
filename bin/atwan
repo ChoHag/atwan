@@ -195,11 +195,12 @@ EOF
 
       unset at_steps
       source "$full_dir/meta"
+      plugin_name=${plugin//[^a-zA-Z]/__}
       if [[ $# = 0 ]]; then
-	push at_loaded_plugins "$plugin:$full_dir"
-	eval at_loaded_plugin_subdirs_$plugin=.
+	push at_loaded_plugins "$plugin_name:$full_dir"
+	eval at_loaded_plugin_subdirs_$plugin_name=.
       else
-	push at_loaded_plugin_subdirs_$plugin $subdir
+	push at_loaded_plugin_subdirs_$plugin_name $subdir
       fi
 
       for step_full in "${at_steps[@]}"; do
