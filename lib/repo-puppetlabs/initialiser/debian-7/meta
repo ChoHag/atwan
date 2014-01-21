@@ -1,0 +1,2 @@
+at_steps=( configuration )
+at_args_I[2]=http://apt.puppetlabs.com/puppetlabs-release-${at_release_codename}.deb

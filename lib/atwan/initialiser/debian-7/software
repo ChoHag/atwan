@@ -14,7 +14,7 @@ elif [[ $at_optarg_y =~ ' ' ]]; then
   at_apt_repo=$at_optarg_y
   echo \ \ APT source entry: \""$at_repo"\"
 else
-  at_apt_repo="deb $at_optarg_y wheezy main"
+  at_apt_repo="deb $at_optarg_y $at_release_codename main"
   echo \ \ APT repository: $at_repo
 fi
 push at_variables at_apt_repo

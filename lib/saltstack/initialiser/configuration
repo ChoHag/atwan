@@ -1,0 +1,51 @@
+#!bash
+# sourced within atwan
+#
+# Configure salt minion as the new server's configuration management tool.
+
+if [[ -v at_optarg_b && -v at_optarg_M ]]; then
+  echo Maybe in the future it will make sense to connect to a salt master on >&2
+  echo a bootstrapped note, but not now.  >&2
+  echo 'The bootstrap (-b) and salt master (-M) options are incompatible.' >&2
+  return 1
+fi
+
+unset at_salt_minion_command at_salt_minion_options
+unset at_salt_master_address
+if [[ -v at_optarg_b ]]; then
+  at_salt_minion_command="salt-call"
+  at_salt_minion_options="--local state.highstate"
+
+  if [[ -v at_optarg_C ]]; then
+    at_puppet_options="$at_salt_minion_options $at_optarg_C"
+  fi
+
+else
+  at_salt_minion_command="salt-minion"
+
+  if [[ -v at_optarg_M ]]; then
+    at_salt_master_address=$at_optarg_M
+    echo "  Salt master: $at_salt_master_address"
+    push at_variables at_salt_master_address
+  fi
+fi
+
+push at_variables at_salt_minion_command at_salt_minion_options
+
+push at_autorun_steps salt_minion_install salt_minion_start
+
+### autostep_salt_minion_install must be defined by a release
+cat >"$at_meta_dir"/salt-minion-start.autorun <<'EVERYTHING'
+autostep_salt_minion_start() {
+  if [ x"$at_salt_master_address" -ne x ]; then
+    mkdir -p /etc/salt/minion.d
+    echo "master: $at_salt_master_address" > /etc/salt/minion.d/atwan-master.conf
+  fi
+
+  "$at_salt_minion_command" $at_salt_minion_options
+}
+EVERYTHING
+
+if [[ ! -v at_optarg_Z ]]; then
+  unset at_continue
+fi

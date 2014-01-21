@@ -1,0 +1,12 @@
+#!bash
+# sourced within atwan
+#
+# Include the command to install salt minion in Debian.
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../configuration"
+
+cat >"$at_meta_dir"/salt-minion-install.autorun <<'EVERYTHING'
+autostep_salt_minion_install() {
+  apt-get -y install salt-minion
+}
+EVERYTHING

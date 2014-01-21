@@ -15,7 +15,11 @@ else
   return
 fi
 
-if [[ -v at_optarg_E ]]; then
+if [[ ! -v at_optarg_E ]]; then
+  echo There is no default tarball. >&2
+  return 1
+
+else
   if [[ -d $at_optarg_E ]]; then
     newtgz=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
     tar czf "$newtgz" -C "$at_optarg_E" .

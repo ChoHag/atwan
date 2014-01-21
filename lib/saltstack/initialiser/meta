@@ -1,0 +1,26 @@
+# Include steps in the initialiser package to install and configure a salt minion as
+# the configuration management tool.
+
+at_steps=(
+  pre/trust
+  pre/configuration
+)
+
+ats_trust_summary="$ats_trust_summary [-P <master fingerprint>] [-z]"
+IFS='' read -r -d '' ats_trust_options <<EOF || true
+$ats_trust_options
+    -P: Fingerprint of the salt master's public key.
+    -D: Connect to an unverified salt master (mnemonic: dummy option [or DNS]).
+    -z: Continue to perform the trust step in modules loaded after saltstack.
+EOF
+ats_trust_getopts=${ats_trust_getopts}P:Dz
+at_args_P=(0 string)
+
+ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-Z]"
+IFS='' read -r -d '' ats_configuration_options <<EOF || true
+$ats_configuration_options
+    -M: The salt master address to connect to from the minion.
+    -Z: Continue to perform the configuration step in modules loaded after saltstack.
+EOF
+ats_configuration_getopts=${ats_configuration_getopts}M:Z
+at_args_M=(0 string)

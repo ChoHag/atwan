@@ -1,0 +1,22 @@
+at_steps=( pre/configuration )
+
+ats_configuration_summary="$ats_configuration_summary [-I ...] [-u ...] [-U ...]"
+IFS='' read -r -d '' ats_configuration_options <<EOF || true
+$ats_configuration_options
+    -I: Repository URL
+        Default:
+	  release = debian-7:
+	    http://debian.saltstack.com/debian
+    -u: Repository signing key URL (mnemonic: upstream).
+        Default:
+	  release = debian-7:
+	    http://debian.saltstack.com/debian-salt-team-joehealy.gpg.key
+    -U: Repository signing key fingerprint (whitespace ignored).
+        Default:
+	  release = debian-7:
+	    102E 2FE7 D514 1DBD 12B2  60FC B09E 40B0 F2AE 6AB9
+EOF
+ats_configuration_getopts="${ats_configuration_getopts}I:R:N:"
+at_args_I=(0 string)
+at_args_u=(0 string)
+at_args_U=(1 string)

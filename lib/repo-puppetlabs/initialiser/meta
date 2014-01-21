@@ -4,6 +4,9 @@ ats_configuration_summary="$ats_configuration_summary [-I <cmdb installer>]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
     -I: URL for the puppetlabs repository installer package.
+        Default:
+	  release = debian-7:
+            http://apt.puppetlabs.com/puppetlabs-release-\$release.deb
 EOF
 ats_configuration_getopts="${ats_configuration_getopts}I:"
 at_args_I=(0 string)

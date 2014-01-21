@@ -1,0 +1,71 @@
+#!bash
+# sourced within atwan
+#
+# Download the saltstack signing key, verify it and add a sources.list and
+# apt-key entry on the remote box.
+
+echo \ \ Set up SaltStack repository.
+if [[ ! -v at_optarg_I ]]; then
+  echo \ \ No.
+  return 0
+fi
+
+if [[ -v at_optarg_u ]]; then
+  echo \ \ . Download repository signing key.
+
+  if [[ ! -v at_optarg_U ]]; then
+    echo "Repository singing key verification fingerprint not provided." >&2
+    echo "To continue anyway set the verification fingerprint to FORCE." >&2
+    return 1
+  fi
+
+  if [[ $at_optarg_u =~ ^https?: ]]; then
+    cached_download $at_optarg_u
+  else
+    at_cache_file=${at_optarg_u#file:}
+  fi
+
+  gpgdir=$(mktemp --tmpdir="$at_meta_dir" -d)
+  pubkey_id=$( < "$at_cache_file" gpg --homedir "$gpgdir" --import 2>&1 \
+	       | tr -d : | grep '^gpg key' | cut -d' ' -f3 )
+  pubkey_fpr=$( gpg --homedir "$gpgdir" --list-public-keys --fingerprint --with-colons \
+		| grep ^fpr | cut -d: -f10 )
+
+  if [[ "$pubkey_fpr" != "${at_optarg_U//$'[ \t]'/}" ]]; then
+    echo KEY MISMATCH >&2
+    (
+      echo "Downloaded key '$at_optarg_u' ($at_cache_file)"
+      echo "does not match fingerprint '$at_optarg_U'"
+      echo "(got: $pubkey_fpr for id $pubkey_id)"
+    ) | fmt -u >&2
+    return 1
+  fi
+
+  cp "$at_cache_file" "$at_build_dir"/saltstack.key
+
+  push at_autorun_steps repo_saltstack_key
+fi
+
+
+if [[ $at_optarg_I =~ ' ' ]]; then
+  at_repo_saltstack_list=$at_optarg_I
+  echo "  . SaltStack APT source entry: \"$at_repo_saltstack_list\""
+else
+  at_repo_saltstack_list="deb $at_optarg_I ${at_release_codename}-saltstack main"
+  echo "  . SaltStack APT repository: $at_optarg_I"
+fi
+
+push at_variables at_repo_saltstack_list
+push at_autorun_steps repo_saltstack_list
+
+cat >"$at_meta_dir"/repo_saltstack.autorun <<'EVERYTHING'
+autostep_repo_saltstack_key() {
+  cp "$at_top"/saltstack.key $HOME
+  apt-key add $HOME/saltstack.key
+}
+
+autostep_repo_saltstack_list() {
+  echo "$at_repo_saltstack_list" > /etc/apt/sources.list.d/saltstack.list
+  apt-get update
+}
+EVERYTHING

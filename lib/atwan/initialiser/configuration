@@ -14,7 +14,7 @@ elif [[ -v at_optarg_a ]]; then
   echo \ \ From "$at_optarg_a".
   cp "$at_optarg_a" "$at_build_dir"/openssh-authorized_keys
 else
-  echo \ \ No.
+  echo \ \ Skip configuration management.
   return 0
 fi
 
