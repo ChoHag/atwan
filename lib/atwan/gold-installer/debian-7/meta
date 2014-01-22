@@ -7,4 +7,4 @@ at_steps=(
   fixauto
   build
 )
-at_args_u[2]=http://cdimage.debian.org/debian-cd/7.1.0/amd64/iso-cd/debian-7.1.0-amd64-netinst.iso
+at_args_u[2]=http://cdimage.debian.org/debian-cd/7.3.0/amd64/iso-cd/debian-7.3.0-amd64-netinst.iso
