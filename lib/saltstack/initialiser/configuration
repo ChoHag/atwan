@@ -37,7 +37,7 @@ push at_autorun_steps salt_minion_install salt_minion_start
 ### autostep_salt_minion_install must be defined by a release
 cat >"$at_meta_dir"/salt-minion-start.autorun <<'EVERYTHING'
 autostep_salt_minion_start() {
-  if [ x"$at_salt_master_address" -ne x ]; then
+  if [ x"$at_salt_master_address" != x ]; then
     mkdir -p /etc/salt/minion.d
     echo "master: $at_salt_master_address" > /etc/salt/minion.d/atwan-master.conf
   fi

@@ -1,6 +1,0 @@
-#!/bin/sh
-cat<<. # Bare-bones ENC for basic bootstrap.
-parameters:
-  bootstrap_puppetmaster: true
-classes:
-  puppet::master:
