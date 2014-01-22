@@ -83,7 +83,7 @@ ats_logging_options='    -l: The address to transmit log entries to.'
 ats_logging_getopts=l:
 at_args_l=(0 string)
 
-ats_networking_summary='-i <ip> [-m <netmask>] [-g <gateway>] -d <dns>'
+ats_networking_summary='-i <ip> [-m <netmask>] [-g <gateway>] -d <dns> [-h <http proxy>]'
 IFS='' read -r -d '' ats_networking_options <<'EOF' || true
     -i: Host's IP address.
 	DNS lookup is not implemented thus this parameter is required.
@@ -95,12 +95,14 @@ IFS='' read -r -d '' ats_networking_options <<'EOF' || true
     -d: Host's DNS.
 	A white-space separated list. Use quotes.
 	Lookup from this machine's /etc/resolv.conf is not implemented.
+    -h: HTTP Proxy.
 EOF
-ats_networking_getopts=i:m:g:d:
+ats_networking_getopts=i:m:g:d:h:
 at_args_i=(1 string)
 at_args_m=(0 string 255.255.255.0)
 at_args_g=(0 string)
 at_args_d=(1 string)
+at_args_h=(0 string)
 
 ats_software_summary='[-y <repository address>]'
 ats_software_options='    -y: Software repository address'
@@ -109,13 +111,13 @@ at_args_y=(0 string)
 
 ats_clock_summary='[-t <time server>]'
 ats_clock_options='    -t: The server from which to request the correct time.'
-ats_clock_getopts=l:
-at_args_l=(0 string)
+ats_clock_getopts=t:
+at_args_t=(0 string)
 
 ats_random_summary='[-e <RNG setup address>]'
 ats_random_options='    -e: If set, describes how to configure entropy/the PRNG'
 ats_random_getopts=e:
-at_args_l=(0 string)
+at_args_e=(0 string)
 
 ats_trust_summary='[-K <key types>] [-G <key options>] [-O <save path prefix>]'
 IFS='' read -r -d '' ats_trust_options <<'EOF' || true
