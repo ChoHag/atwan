@@ -29,7 +29,6 @@ while IFS='' read -r line; do
     plugin=${plugin_full%%:*} dir=${plugin_full#*:}
 
     eval subdirs=\(\${at_loaded_plugin_subdirs_$plugin[@]}\)
-    set|grep ^subdir >&2
     for dir in ${subdirs[@]/#/${dir%/}/}; do
 
       if [[ -e $dir/initialiser.in ]]; then

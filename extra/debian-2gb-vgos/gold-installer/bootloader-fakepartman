@@ -1,0 +1,65 @@
+# This file is copied (sans comments where # is the _first_ character of the
+# line) to the meta dir to be turned into a *SINGLE STRING* which
+# debian-installer runs prior to anything else.
+#
+# It is an extremely ugly hack which avoids using partman entirely by abusing
+# the shell's PATH search order to get it run (from /sbin/partman) instead of
+# the real thing (from /bin/partman) at the appropriate stage in the
+# debian-install process.
+#
+# The 'first' disc is the one used (the top line from the output of
+# list-deviceds disk). The partitioning scheme chosen is not at all flexible
+# (although it could be with moderate ease) but will probably do for the
+# majority of cases. The disc is split into two partitions, 1GB for /boot
+# (ext3) and the rest dedicated to a LVM physical volume. This is further
+# divided root (4GB ext4) and swap (1GB) logical volumes:
+#
+# /dev/vda:
+#   part1: 0.25GB (ext3, /boot)
+#   part2: PV (VG: vgos)
+# /dev/vgos:
+#   swap: 0.5GB
+#   root: 1GB (ext4, /)
+#
+# Don't test me on this. I have Opinions about partman.
+#
+(
+  echo '#!/bin/sh';
+  echo 'exec >/var/log/fakepartman 2>&1';
+  echo 'anna-install partman-lvm';
+  echo 'd=`list-devices disk | head -n1`';
+# grub-installer/bootdev can't be (hd0) so must be set here where the device is known.
+  echo 'debconf-set grub-installer/bootdev ${d}';
+# sfdisk needs -D or grub-probe can't detect ext2 on /boot.
+  echo '( echo ,256,L,\*';
+  echo '  echo ,+,da ) | sfdisk -D $d';
+  echo 'update-dev --settle';
+  echo 'pvcreate -ffy ${d}2';
+  echo 'vgcreate vgos ${d}2';
+  echo 'update-dev --settle';
+  echo 'lvcreate -L 512G -n swap0 vgos';
+  echo 'lvcreate -L 1G -n root vgos';
+  echo 'update-dev --settle';
+  echo 'mkfs.ext3 ${d}1';
+  echo 'mkfs.ext4 /dev/vgos/root';
+  echo 'mkswap /dev/vgos/swap0';
+  echo 'mkdir -p /target';
+  echo 'mount -t ext4 -o noatime /dev/vgos/root /target';
+  echo 'cd /target';
+# The cd must have an entry in fstab and it must be /media/cdrom or the
+# installer can't continue.
+  echo 'mkdir -p boot etc media/cdrom0';
+  echo 'ln -s cdrom0 media/cdrom';
+  echo 'mount -t ext3 -o noatime ${d}1 /target/boot';
+  echo 'cd=`list-devices cd | head -n1`';
+  echo 'cat <<EOF >/target/etc/fstab';
+  echo '/dev/vgos/root / ext4 noatime,errors=remount-ro 0 1';
+  echo '${d}1 /boot ext3 noatime 0 2';
+  echo '';
+  echo '/dev/vgos/swap0 none swap sw 0 0';
+  echo '';
+  echo '$cd /media/cdrom udf,iso9660 user,noauto 0 0';
+  echo 'EOF';
+  echo 'exit 0';
+) > /sbin/partman;
+chmod 755 /sbin/partman

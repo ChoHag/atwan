@@ -1,0 +1,25 @@
+#!bash
+# sourced within atwan
+#
+# Include the contents of the preseed.early and preseed.late directories in the
+# preseed/early_command and preseed/late_command sections of debconf. The
+# result is a directory containing a filesystem-ordered collection of
+# shell-like scripts which get executed at the beginning or end of the
+# installer.
+
+##### This includes the hard-coded amd64 kernel choice
+cp "$at_step_dir"/preseed-template "$at_meta_dir"/preseed
+mkdir "$at_meta_dir"/preseed.early "$at_meta_dir"/preseed.late
+# Remove the network device settings from the gold image template.
+echo 'rm -f /target/etc/udev/rules.d/70-persistent-net.rules' \
+  >"$at_meta_dir"/preseed.late/preauto-rm-udev-net
+
+# Partitioning. Well this is nasty. See bootloader-fakepartman for details.
+grep -v ^\#                                 \
+  <"$at_step_dir"/bootloader-fakepartman    \
+  >"$at_meta_dir"/preseed.early/fakepartman
+
+# Although set by fakepartman, grub-installer/bootdev is not 'seen' and the
+# question still gets asked. Include this in the preseed file also so that
+# debconf marks it as seen.
+echo d-i grub-installer/bootdev string foo >>"$at_meta_dir"/preseed

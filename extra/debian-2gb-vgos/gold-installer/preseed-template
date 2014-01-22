@@ -1,0 +1,34 @@
+# Preseed file taken originally from http://d-i.alioth.debian.org/manual/example-preseed.txt
+
+# Disable network configuration entirely.
+d-i netcfg/enable boolean false
+# A counterpoint to this is the removal of /etc/udev/rules.d/70-persistent-net.rules
+# by a script created in preauto.
+
+# UTC time zone.
+d-i time/zone string UTC
+d-i clock-setup/utc boolean true
+d-i clock-setup/ntp boolean false
+
+# Use serial and VC consoles.
+d-i finish-install/keep-consoles boolean true
+
+# Keep apt effectively unconfigured.
+d-i apt-setup/use_mirror boolean false
+d-i apt-setup/contrib boolean false
+d-i apt-setup/non-free boolean false
+d-i apt-setup/services-select select
+
+# Minimal package selection.
+d-i base-installer/install-recommends boolean false
+d-i base-installer/kernel/image string linux-image-amd64
+d-i base-installer/initramfs-tools/driver-policy select most
+d-i popularity-contest/participate boolean false
+# I don't know if this trailing space needs to be here but I'm too lazy to check.
+tasksel tasksel/first multiselect 
+
+# Avoid the last message about the install being complete.
+d-i finish-install/reboot_in_progress note
+d-i grub-installer/only_debian boolean true
+d-i debian-installer/exit/poweroff boolean true
+
