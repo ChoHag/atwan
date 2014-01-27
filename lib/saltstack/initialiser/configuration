@@ -32,14 +32,17 @@ fi
 
 push at_variables at_salt_minion_command at_salt_minion_options
 
+### autostep_salt_minion_install must be defined by a release
 push at_autorun_steps salt_minion_install salt_minion_start
 
-### autostep_salt_minion_install must be defined by a release
 cat >"$at_meta_dir"/salt-minion-start.autorun <<'EVERYTHING'
 autostep_salt_minion_start() {
   if [ x"$at_salt_master_address" != x ]; then
-    mkdir -p /etc/salt/minion.d
-    echo "master: $at_salt_master_address" > /etc/salt/minion.d/atwan-master.conf
+    echo "master: $at_salt_master_address" >> /etc/salt/minion
+  fi
+
+  if [ x"$at_salt_master_fingerprint" != x ]; then
+    echo "master_finger: $at_salt_master_fingerprint" >> /etc/salt/minion
   fi
 
   "$at_salt_minion_command" $at_salt_minion_options

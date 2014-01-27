@@ -7,6 +7,10 @@ at_step_dir=$at_step_dir/.. source "$at_step_dir/../configuration"
 
 cat >"$at_meta_dir"/salt-minion-install.autorun <<'EVERYTHING'
 autostep_salt_minion_install() {
+  echo '#!/bin/sh' >/usr/sbin/policy-rc.d
+  echo 'exit 101' >>/usr/sbin/policy-rc.d
+  chmod 755 /usr/sbin/policy-rc.d
   apt-get -y install salt-minion
+  rm /usr/sbin/policy-rc.d
 }
 EVERYTHING

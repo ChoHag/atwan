@@ -1,0 +1,35 @@
+#!bash
+# sourced within atwan
+#
+# If a bootstrap image is being built and the -E option is specified, create
+# the tarball which will be used to bootstrap.
+
+if [[ -v at_optarg_b ]]; then
+  echo '  Yes.'
+  if [[ ! -v at_optarg_E ]]; then
+    echo 'No git repository to build bootstrap from.' >&2
+    return 1
+  fi
+else
+  echo '  No.'
+  return
+fi
+
+saltsrv=$(mktemp -d ${at_work_dir:+--tmpdir="$at_work_dir"})
+
+git clone --depth 0 -b bootstrap -- "${at_optarg_E}" "$saltsrv"
+
+newtgz=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
+tar czf "$newtgz" -C "$saltsrv" .
+mv "$newtgz" "$at_build_dir"/srv.tgz
+
+push at_autorun_steps bootstrap
+
+cat >"$at_meta_dir"/bootstrap.autorun <<'EVERYTHING'
+# Extract the bootstrap tarball in /srv. Note that this will walk all over /srv
+# without prejudice so make sure the tarball is safe.
+#
+autostep_bootstrap() {
+  tar xz -C /srv <"$at_top"/srv.tgz
+}
+EVERYTHING

@@ -22,15 +22,7 @@ fi
 if [[ -v at_optarg_P ]]; then
   at_salt_master_fingerprint=$at_optarg_P
   push at_variables at_salt_master_fingerprint
-  push at_autorun_steps salt_minion_trust
 fi
-
-cat >"$at_meta_dir"/salt-minion-trust.autorun <<'EVERYTHING'
-autostep_salt_minion_trust() {
-  mkdir -p /etc/salt/minion.d
-  echo "master_finger: $at_salt_master_fingerprint" > /etc/salt/minion.d/atwan-minion_trust.conf
-}
-EVERYTHING
 
 if [[ ! -v at_optarg_z ]]; then
   unset at_continue

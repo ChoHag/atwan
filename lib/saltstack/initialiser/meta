@@ -2,9 +2,20 @@
 # the configuration management tool.
 
 at_steps=(
+  bootstrap
   pre/trust
   pre/configuration
 )
+
+ats_bootstrap_summary='[ -b [-C <command-line>] [-E <git repository>] ]'
+IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
+    -b: Create a bootstrap iso.
+    -C: Extra options to the salt-call command.
+    -E: A git repository which has been constructed according to rules I'm
+        still pulling out of my arse.
+EOF
+ats_bootstrap_getopts=bC:E:
+at_args_E=(0 string)
 
 ats_trust_summary="$ats_trust_summary [-P <master fingerprint>] [-z]"
 IFS='' read -r -d '' ats_trust_options <<EOF || true
