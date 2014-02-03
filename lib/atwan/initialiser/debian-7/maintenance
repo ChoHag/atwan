@@ -1,24 +1,26 @@
 #!bash
 # sourced within atwan
 #
-# Configure the system software sources (eg. apt or yum).
+# Set up apt.
+#
+# Hardware clock and entropy are not yet supported.
 
 # If the argument to the -y option does not contain a space it is assumed to be
 # just the URL and is transformed into a complete sources.list line before
 # being included as the at_repo variable.
 
-if [[ ! -v at_optarg_y ]]; then
-  echo \ \ No.
-  return 0
-elif [[ $at_optarg_y =~ ' ' ]]; then
-  at_apt_repo=$at_optarg_y
-  echo \ \ APT source entry: \""$at_repo"\"
-else
-  at_apt_repo="deb $at_optarg_y $at_release_codename main"
-  echo \ \ APT repository: $at_repo
+if [[ -v at_optarg_y ]]; then
+  if [[ $at_optarg_y =~ ' ' ]]; then
+    at_apt_repo=$at_optarg_y
+    echo \ \ APT source entry: \""$at_repo"\"
+  else
+    at_apt_repo="deb $at_optarg_y $at_release_codename main"
+    echo \ \ APT repository: $at_repo
+  fi
+  at_variables+=(at_apt_repo)
+  at_autorun_steps+=(apt)
+  unset at_optarg_y
 fi
-push at_variables at_apt_repo
-push at_autorun_steps apt
 
 cat >"$at_meta_dir"/software.autorun <<'EVERYTHING'
 # Configure a remote apt repository

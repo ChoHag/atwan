@@ -3,35 +3,24 @@
 
 at_steps=(
   bootstrap
-  pre/trust
   pre/configuration
 )
 
-ats_bootstrap_summary='[ -b [-C <command-line>] [-E <git repository>] ]'
+ats_bootstrap_summary='[ -B [-C <command-line>] [-E <git repository>] ]'
 IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
-    -b: Create a bootstrap iso.
+    -B: Create a bootstrap iso.
     -C: Extra options to the salt-call command.
     -E: A git repository which has been constructed according to rules I'm
         still pulling out of my arse.
 EOF
-ats_bootstrap_getopts=bC:E:
-at_args_E=(0 string)
+ats_bootstrap_getopts=BC:E:
 
-ats_trust_summary="$ats_trust_summary [-P <master fingerprint>] [-z]"
-IFS='' read -r -d '' ats_trust_options <<EOF || true
-$ats_trust_options
-    -P: Fingerprint of the salt master's public key.
-    -D: Connect to an unverified salt master (mnemonic: dummy option [or DNS]).
-    -z: Continue to perform the trust step in modules loaded after saltstack.
-EOF
-ats_trust_getopts=${ats_trust_getopts}P:Dz
-at_args_P=(0 string)
-
-ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-Z]"
+ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-P <master fingerprint> | -W]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
     -M: The salt master address to connect to from the minion.
-    -Z: Continue to perform the configuration step in modules loaded after saltstack.
+    -P: Fingerprint of the salt master's public key.
+    -W: Connect to an unverified salt master (mnemonic: pwn me).
+    -z: Perform the configuration step in the atwan plugin (openssh).
 EOF
-ats_configuration_getopts=${ats_configuration_getopts}M:Z
-at_args_M=(0 string)
+ats_configuration_getopts=${ats_configuration_getopts}M:P:Wz

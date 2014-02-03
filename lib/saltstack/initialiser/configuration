@@ -3,16 +3,14 @@
 #
 # Configure salt minion as the new server's configuration management tool.
 
-if [[ -v at_optarg_b && -v at_optarg_M ]]; then
+if [[ -v at_optarg_B && -v at_optarg_M ]]; then
   echo Maybe in the future it will make sense to connect to a salt master on >&2
   echo a bootstrapped note, but not now.  >&2
-  echo 'The bootstrap (-b) and salt master (-M) options are incompatible.' >&2
+  echo 'The bootstrap (-B) and salt master (-M) options are incompatible.' >&2
   return 1
 fi
 
-unset at_salt_minion_command at_salt_minion_options
-unset at_salt_master_address
-if [[ -v at_optarg_b ]]; then
+if [[ -v at_optarg_B ]]; then
   at_salt_minion_command="salt-call"
   at_salt_minion_options="--local state.highstate"
 
@@ -26,17 +24,37 @@ else
   if [[ -v at_optarg_M ]]; then
     at_salt_master_address=$at_optarg_M
     echo "  Salt master: $at_salt_master_address"
-    push at_variables at_salt_master_address
+    at_variables+=(at_salt_master_address)
   fi
 fi
 
-push at_variables at_salt_minion_command at_salt_minion_options
+at_variables+=(at_salt_minion_command at_salt_minion_options)
 
 ### autostep_salt_minion_install must be defined by a release
-push at_autorun_steps salt_minion_install salt_minion_start
+at_autorun_steps+=(salt_start)
 
-cat >"$at_meta_dir"/salt-minion-start.autorun <<'EVERYTHING'
-autostep_salt_minion_start() {
+if [[ ! -v at_optarg_P ]]; then
+  echo WARNING: No salt master certificate fingerprint given. >&2
+  if [[ ! -v at_optarg_W ]]; then
+    echo "Not continuing without the pwn-me option (-W)." >&2
+    return 1
+  fi
+  echo "Continuing anyway like a dummy." >&2
+fi
+
+if [[ -v at_optarg_P ]]; then
+  at_salt_master_fingerprint=$at_optarg_P
+  at_variables+=(at_salt_master_fingerprint)
+fi
+
+if [[ ! -v at_optarg_z ]]; then
+  unset at_continue
+fi
+
+cat >"$at_meta_dir"/saltstack.autorun <<'EVERYTHING'
+autostep_salt_start() {
+  salt_install_package
+
   if [ x"$at_salt_master_address" != x ]; then
     echo "master: $at_salt_master_address" >> /etc/salt/minion
   fi
@@ -49,6 +67,3 @@ autostep_salt_minion_start() {
 }
 EVERYTHING
 
-if [[ ! -v at_optarg_Z ]]; then
-  unset at_continue
-fi

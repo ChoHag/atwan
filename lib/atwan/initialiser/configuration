@@ -1,30 +1,184 @@
 #!bash
 # sourced within atwan
 #
-# Include the designated public keys in the new server's
-# /root/.ssh/authorized_keys file, or use the given authorized_keys file
-# provided.
+# Perform steps necessary to allow the machine to be configured further after
+# autorun has completed (or more precisely: as the final step in the autorun
+# process before its own cleanup).
+#
+# In the atwan plugin, this entails installing openssh. The public keys
+# generated for the new node can be included in a known_hosts file (or signed
+# by a CA), and a list of public keys (or certificates) can be incled in the
+# new server's AuthorizedKeysFile (or TrustedUserCAKeys).
 
-if [[ -v at_optarg_s ]]; then
-  for file in "${at_optarg_s[@]}"; do
-    echo \ \ Including "$file".
-    cat "$file" >>"$at_build_dir"/openssh-authorized_keys
+if [[ ! -v at_optarg_K || $at_optarg_K == none ]]; then
+  echo '  Do not install OpenSSH.'
+  return 1
+fi
+
+
+cat >"$at_meta_dir"/openssh.autorun <<'EVERYTHING'
+autostep_openssh_install() {
+  openssh_etcdir=/etc/ssh
+  openssh_install_package_before
+
+  mkdir -p ${openssh_etcdir}/
+  for type in $at_openssh_keytypes; do
+    if [ $type = rsa1 ]; then
+      dst=${openssh_etcdir}/ssh_host_key
+    else
+      dst=${openssh_etcdir}/ssh_host_${type}_key
+    fi
+    reset_mask=$(umask)
+    umask 333
+    cp "$at_top"/openssh-key-$type.pub "$dst".pub
+    umask 377
+    cp "$at_top"/openssh-key-$type "$dst"
+    umask $reset_mask
   done
-elif [[ -v at_optarg_a ]]; then
-  echo \ \ From "$at_optarg_a".
-  cp "$at_optarg_a" "$at_build_dir"/openssh-authorized_keys
-else
-  echo \ \ Skip configuration management.
+
+  openssh_install_package_after
+}
+
+autostep_openssh_system_certificates() {
+  # Depends on openssh_etcdir and openssh_service from install step
+  echo "TrustedUserCAKeys $openssh_etcdir/trusted_user_ca_keys" >> "$openssh_etcdir"/sshd_config
+  openssh_restart
+}
+
+autostep_openssh_user_certificates() {
+  if [ ! -d "$HOME"/.ssh ]; then
+    mkdir -p "$HOME"/.ssh
+    chmod 700 "$HOME"/.ssh
+  fi
+  sed 's/^/@cert-authority /' <"$at_top"/openssh-configkeys >>"$HOME"/.ssh/authorized_keys
+}
+
+autostep_openssh_user_keys() {
+  if [ ! -d "$HOME"/.ssh ]; then
+    mkdir -p "$HOME"/.ssh
+    chmod 700 "$HOME"/.ssh
+  fi
+  cat <"$at_top"/openssh-configkeys >>"$HOME"/.ssh/authorized_keys
+}
+
+autorun_openssh_krl() {
+  echo 'RevokedKeys /etc/ssh/revoked_keys' >> "$openssh_etcdir"/sshd_config
+  cp "$at_top"/openssh-krl /etc/ssh/revoked_keys
+  openssh_restart
+}
+EVERYTHING
+
+
+echo '  Generate SSH keypair[s].'
+oIFS=$IFS IFS=:
+keys=($at_optarg_K)
+IFS=$oIFS
+unset public_keys
+for key in "${keys[@]}"; do
+  if [[ $key =~ = ]]; then
+    key_type=${key%%=*}
+    cli_opts=${key#key_type=}
+    if [[ $cli_opts =~ ^[0-9]+$ ]]; then
+      gen_opts="-b $cli_opts"
+    else
+      gen_opts=$cli_opts
+    fi
+  else
+    key_type=$key
+    unset key_opts
+  fi
+
+  at_openssh_keytypes="${at_openssh_keytypes:+$at_openssh_keytypes }$key_type"
+
+  echo -n "    $key_type: "
+  if [[ -v key_opts ]]; then
+    echo $key_opts
+  else
+    echo "(default)"
+  fi
+
+  ssh-keygen -q -f "$at_build_dir/openssh-key-$key_type" -N '' -C '' -t $key_type $key_opts
+
+  public_keys+=("$(cat "$at_build_dir/openssh-key-$key_type.pub")")
+done
+at_variables+=(at_openssh_keytypes)
+at_autorun_steps+=(openssh_install)
+
+
+unset certificates
+if [[ -v at_optarg_A ]]; then
+  echo Using an SSH CA is unimplemented. >&2
+  return 1
+  at_openssh_hostcert=something
+  at_variables+=(at_openssh_hostcert)
+  unset known_hosts_append # The CA certificate is all that's needed and should be there already
+  # Must wait to include the signed certificate in the iso.
+  at_autorun_steps+=(openssh_cert)
+fi
+
+
+# Save the public key[s] (and certificate[s]) 'somewhere'.
+if [[ -v at_optarg_D && $at_optarg_D != none ]]; then
+  if [[ $at_optarg_D == user-known-hosts ]]; then
+    echo "  Append public key[s] to $at_optarg_D."
+    if [[ ! -d $HOME/.ssh ]]; then
+      echo '  Creating ~/.ssh'
+      mkdir $HOME/.ssh
+      chmod 700 $HOME/.ssh
+    fi
+    names="$at_hostname,$at_fqdn,$at_ip,${at_optarg_N:+,$at_optarg_N}"
+    (
+      echo "# Public keys for $at_optarg_n at $(date)"
+      for key in "${public_keys[@]}"; do
+	echo "$names $key"
+      done
+      if [[ ${#certificates[@]} != 0 ]]; then
+	echo "# Certificates for $at_optarg_n"
+	for certificate in "${certificates[@]}"; do
+	  echo "# $certificate"
+	done
+      fi
+    ) >> $HOME/.ssh/known_hosts
+
+  else
+    # Will just exec $at_optarg_D (also hard-code system-known-hosts)
+    echo "Unknown distribution method: $at_optarg_D" >&2
+    return 1
+  fi
+fi
+
+
+if [[ ! -v at_optarg_b ]]; then
+  echo '  Do not install a user public key or certificate.'
   return 0
 fi
 
-push at_autorun_steps openssh_authorized_keys
-cat >"$at_meta_dir"/openssh-authorized_keys.autorun <<'EVERYTHING'
-autostep_openssh_authorized_keys() {
-  reset_mask=$(umask)
-  umask 077
-  mkdir -p /root/.ssh
-  cp "$at_top"/openssh-authorized_keys /root/.ssh/authorized_keys
-  umask "$reset_mask"
-}
-EVERYTHING
+
+if [[ -v at_optarg_s ]]; then
+  if [[ -v at_optarg_U ]]; then
+    echo '  Install system-wide user CA certificate.'
+    userkey_step=system_certificates
+  else
+    echo '  Install root user CA certificate.'
+    userkey_step=user_certificates
+  fi
+else
+  echo '  Install user authorized_keys.'
+  userkey_step=user_keys
+fi
+at_autorun_steps+=(openssh_$userkey_step)
+echo "  Including $at_optarg_b."
+cp "$at_optarg_b" "$at_build_dir"/openssh-configkeys
+
+
+if [[ -v at_optarg_V ]]; then
+  echo "  Including KRL file $openssh_krl_file."
+  cp "$at_optarg_V" "$at_build_dir"/openssh-krl
+  at_autorun_steps+=(openssh_krl)
+fi
+
+
+if [[ -v at_optarg_Z ]]; then
+  echo I have no idea what this was for >&2
+  return 1
+fi

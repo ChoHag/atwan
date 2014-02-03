@@ -1,0 +1,21 @@
+#!bash
+# sourced within atwan
+#
+# Perform release-specific part of setting up configuration management. In this
+# case, install sshd.
+
+cat >"$at_meta_dir"/openssh-release.autorun <<'EVERYTHING'
+openssh_install_package_before() {
+  return 0
+}
+
+openssh_install_package_after() {
+  apt-get -y install openssh-server
+}
+
+openssh_restart() {
+  service ssh restart
+}
+EVERYTHING
+
+at_step_dir=$at_step_dir/.. source "$at_step_dir/../configuration"

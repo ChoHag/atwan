@@ -4,41 +4,31 @@
 #
 # Not all the steps listed below are required, and more can be added by
 # plugins if so desired.
-#
-# The steps which must be completed by a plugin are:
-#  * stop_initialiser
-#  * hostname
-#  * networking
-#  * software
-#
-# I don't have a complete idea of how atwan itself will implement trust yet, so
-# it makes no sense not to override that too.
 
 at_steps=(
+  ## Initialiso
   # Atwan gives you a build directory and that's it.
   'environment:      Prepare the build environment.'
-
   # Use mkreadme or there'll be a file called 'readme' which isn't a readme.
   'mkreadme:         Create a README file.'
-
-  'bootstrap:        Prepare a bootstrap image.'
   'stop_initialiser: Stop automatic initialiser \(cron\).'
 
-  # If this is going to be done, it should be done early. Nothing else should
-  # really be order-dependent.
+  ## Extra bootstrap
+  'bootstrap:        Prepare a bootstrap image.'
+
+  ## Authentication
   'authentication:   Update authentication credentials.'
 
-  'hostname:         Set the hostname:'
-  'logging:          Configure logging:'
+  ## Networking
   'networking:       Configure networking:'
-  'software:         Configure software management:'
-  'clock:            Configure hardware clock:'
-  'random:           Configure random number generator:'
-  'filesystem:       Configure filesystem:'
 
-  'trust:            Establish trust:'
+  ## Maintenance
+  'maintenance:      Configure ongoing maintenance:'
+
+  ## Configuration
   'configuration:    Configure configuration management:'
 
+  ## Wrap up
   'autorun:          Compile the autorun script.'
   'sign:             Sign all the things.'
   'build:            Build the initialiser package ISO.'
@@ -47,9 +37,9 @@ at_steps=(
 at_out_file_default=initialiser--\$at_optarg_n.iso
 at_out_file_default_display='initialiser--<fqdn>.iso'
 
-ats_bootstrap_summary='[ -b [-C <command-line>] [-E <etc dir>] ]'
+ats_bootstrap_summary='[ -B [-C <command-line>] [-E <etc dir>] ]'
 IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
-    -b: Create a bootstrap iso.
+    -B: Create a bootstrap iso.
     -C: Boot-strap command-line options. Usually the name of a file in the /etc
         overlay directory.
     -E: A directory which will be stored in a tar archive and extracted to
@@ -63,28 +53,17 @@ EOF
 # -E in the configuration step.  All Atwan will actually do if the bootstrap
 # step is not overriden, is copy the contents of <etc dir> over the top of /etc
 # on the new server. This either needs to contain something appropriate, or a
-# step needs to make note of at_optarg_b and at_optarg_E.  Mainly this is here
+# step needs to make note of at_optarg_B and at_optarg_E.  Mainly this is here
 # rather than left to plugins in order to get this bit:
-ats_bootstrap_getopts=bC:E:
-at_args_E=(0 string)
+ats_bootstrap_getopts=BC:E:
 
 ats_authentication_summary='[-p <secret>]'
-ats_authentication_options='    -p: The superuser'\''s password.'
+ats_authentication_options='    -p: The superuser'\''s replacement password.'
 ats_authentication_getopts=p:
-at_args_p=(0 string)
 
-ats_hostname_summary='-n <fqdn>'
-ats_hostname_options='    -n: The FQDN of the new server.'
-ats_hostname_getopts=n:
-at_args_n=(1 string)
-
-ats_logging_summary='[-l <logging server address>]'
-ats_logging_options='    -l: The address to transmit log entries to.'
-ats_logging_getopts=l:
-at_args_l=(0 string)
-
-ats_networking_summary='-i <ip> [-m <netmask>] [-g <gateway>] -d <dns> [-h <http proxy>]'
+ats_networking_summary='-n <fqdn> -i <ip> -d <dns-servers> [-m <netmask>] [-g <gateway>] [-h <http proxy>] [-l <logging server>]'
 IFS='' read -r -d '' ats_networking_options <<'EOF' || true
+    -n: The FQDN of the new server.
     -i: Host's IP address.
 	DNS lookup is not implemented thus this parameter is required.
     -m: Host's netmask.
@@ -96,56 +75,43 @@ IFS='' read -r -d '' ats_networking_options <<'EOF' || true
 	A white-space separated list. Use quotes.
 	Lookup from this machine's /etc/resolv.conf is not implemented.
     -h: HTTP Proxy.
+    -l: (Unimplemented) The address to transmit log entries to.
 EOF
-ats_networking_getopts=i:m:g:d:h:
+ats_networking_getopts=n:i:m:g:d:h:l:
+at_args_n=(1 string)
 at_args_i=(1 string)
 at_args_m=(0 string 255.255.255.0)
-at_args_g=(0 string)
 at_args_d=(1 string)
-at_args_h=(0 string)
 
-ats_software_summary='[-y <repository address>]'
-ats_software_options='    -y: Software repository address'
-ats_software_getopts=y:
-at_args_y=(0 string)
+ats_maintenance_summary='[-y <repository address>] [-t <time server>] [-e <RNG setup address>]'
+IFS='' read -r -d '' ats_maintenance_options <<'EOF' || true
+    -y: Software repository address
+    -t: (Unimplemented) The server from which to request the correct time
+    -e: (Unimplemented) If set, describes how to configure entropy/the PRNG
+EOF
+ats_maintenance_getopts=y:t:e:
 
-ats_clock_summary='[-t <time server>]'
-ats_clock_options='    -t: The server from which to request the correct time.'
-ats_clock_getopts=t:
-at_args_t=(0 string)
-
-ats_random_summary='[-e <RNG setup address>]'
-ats_random_options='    -e: If set, describes how to configure entropy/the PRNG'
-ats_random_getopts=e:
-at_args_e=(0 string)
-
-ats_trust_summary='[-K <key types>] [-G <key options>] [-O <save path prefix>]'
-IFS='' read -r -d '' ats_trust_options <<'EOF' || true
+ats_configuration_summary='[-N <alternate name>] [-K <key options>] [-D <distribution>] [-A <signing authority>] -b <public key or certificate> [ -s | -U [ -s [-V <revocation file>] [-Z <authorised principals>] ] ]'
+IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
+    Host:
+    -N: Additional names (comma-separated).
     -K: The key types to be generated specified as a colon-separated list.
         Default: ecdsa:rsa:dsa
-    -G: Any additional options to pass to the ssh-keygen command for each key
-	type. Multiple -G options can be given with an argument of the key type
-	(eg. ecdsa) followed by a colon and the _quoted_ string to append to
-	ssh-keygen, or a plain integer which to specify the keysize in bits.
-	  eg. -G ecdsa:521 -O rsa:"-b 4096 -C 'A large key with a comment'"
-    -O: Location to save the public keys. "<type>.pub" is appended.
-        Default: initialiser--<fqdn>-openssh-<type>.pub
+    -D: Public key distribution method.
+        Default: user-known-hosts
+    -A: (Unimplemented) Signing authority.
+    User:
+    -b: Public key or certificate file to include.
+    -s: Send a certificate instead of a public key.
+    -U: Install the certificate[s] system-wide.
+    -V: KRL file to include.
+    -Z: (Unimplemented) Something about AuthorizedPrincipalsFile.
 EOF
-ats_trust_getopts=K:G:O:
+ats_configuration_getopts=N:K:D:L:A:b:sV:UZ:
 at_args_K=(1 string ecdsa:rsa:dsa)
-at_args_G=(0 multi-string)
-at_args_O=(1 string initialiser--\$at_optarg_n-openssh-)
-
-ats_configuration_summary='[-s <ssh public key> | -a <ssh known_hosts file>]'
-IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
-    -s: Public key file(s) to include in /root/.ssh/authorized_keys on the new
-        node.
-    -a: A complete authorized_keys file for the new server _instead of_ listing
-        individual public key files.
-EOF
-ats_configuration_getopts=s:a:
-at_args_s=(0 multi-string)
-at_args_a=(0 string)
+at_args_D=(0 string user-known-hosts)
+at_args_b=(1 string $HOME/.ssh/id_rsa.pub)
+at_args_Z=(0 multi-string)
 
 # build is always the final step.
 ats_build_summary='[-k <gpg signing key>] [-F <format>]'
@@ -159,8 +125,8 @@ at_args_k=(0 gpg:sec)
 at_args_F=(1 string iso)
 
 further_checks() {
-  if [[ -v at_optarg_E && ! -v at_optarg_b ]]; then
-    echo 'Overlay /etc directory (-E) can only be specified in a bootstrap (-b) image.' >&2
+  if [[ -v at_optarg_E && ! -v at_optarg_B ]]; then
+    echo 'Overlay /etc directory (-E) can only be specified in a bootstrap (-B) image.' >&2
     return 1
   fi
 
@@ -171,5 +137,12 @@ further_checks() {
 
   if [[ -v at_optarg_S && $at_optarg_S =~ '^/dev/u?random$' && ! -v at_optarg_K ]]; then
     at_optarg_K=256
+  fi
+
+  if [[ -v at_optarg_V || -v at_optarg_Z ]]; then
+    if ! [[ -v at_optarg_s && -v at_optarg_U ]]; then
+      echo 'Revocation file (-V) and authorised principals (-Z) are only valid with system-wide certificates.' >&2
+      return 1
+    fi
   fi
 }

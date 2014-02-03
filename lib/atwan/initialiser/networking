@@ -3,30 +3,37 @@
 #
 # Configure networking on the new server.
 
+at_fqdn=$at_optarg_n
+at_hostname=${at_optarg_n%%.*}
+at_domain=${at_optarg_n#*.}
+echo "  Hostname: $at_fqdn"
+at_variables+=(at_fqdn at_hostname at_domain)
+at_autorun_steps+=(hostname)
+
 at_ip=$at_optarg_i
 at_mask=$at_optarg_m
 at_gateway=${at_optarg_g:-${at_ip%.*}.1}
-echo \ \ IP: $at_ip
-echo \ \ Netmask: $at_mask
-echo \ \ Gateway: $at_gateway
-push at_variables at_ip at_mask at_gateway
-push at_autorun_steps net_ip4
+echo "  IP: $at_ip"
+echo "  Netmask: $at_mask"
+echo "  Gateway: $at_gateway"
+at_variables+=(at_ip at_mask at_gateway)
+at_autorun_steps+=(net_ip4)
 
 at_dns=$at_optarg_d
-push at_variables at_dns
-echo \ \ DNS Servers: $at_dns
+at_variables+=(at_dns)
+echo "  DNS Servers: $at_dns"
 at_dns_search=${at_optarg_n#*.}
 if [[ "$at_dns_search" ]]; then
-  echo \ \ DNS Search: $at_dns_search
-  push at_variables at_dns_search
+  echo "  DNS Search: $at_dns_search"
+  at_variables+=(at_dns_search)
 fi
-push at_autorun_steps net_dns
+at_autorun_steps+=(net_dns)
 
 if [[ -v at_optarg_h ]]; then
-  echo \ \ HTTP Proxy: $at_proxy
+  echo "  HTTP Proxy: $at_proxy"
   at_proxy=$at_optarg_h
-  push at_variables at_proxy
-  push at_autorun_steps net_proxy
+  at_variables+=(at_proxy)
+  at_autorun_steps+=(net_proxy)
 fi
 
-push at_autorun_steps net_ifup
+at_autorun_steps+=(net_ifup)

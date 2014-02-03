@@ -1,0 +1,20 @@
+#!bash
+# sourced within atwan
+#
+# Configure system maintenance. Atwan includes the ability to set software
+# repositories, system time and entropy.
+
+if [[ -v at_optarg_y ]]; then
+  echo '  Enabling software upgrades has not been configured for this release.' >&2
+  return 1
+fi
+
+if [[ -v at_optarg_t ]]; then
+  echo '  Setting the system clock has not been configured for this release.' >&2
+  return 1
+fi
+
+if [[ -v at_optarg_e ]]; the
+  echo '  Installing an entropy source has not been configured for this release.' >&2
+  return 1
+fi

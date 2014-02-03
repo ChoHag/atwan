@@ -4,7 +4,7 @@
 # If a bootstrap image is being built and the -E option is specified, create
 # the tarball which will be used to bootstrap.
 
-if [[ -v at_optarg_b ]]; then
+if [[ -v at_optarg_B ]]; then
   echo '  Yes.'
   if [[ ! -v at_optarg_E ]]; then
     echo 'No git repository to build bootstrap from.' >&2
