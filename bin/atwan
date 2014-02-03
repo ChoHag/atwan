@@ -18,7 +18,6 @@ set -e
 # Enable debugging if the debug environment variable is set to anything
 # other than null or zero.
 if [[ -v debug && $debug && $debug != 0 ]]; then
-  debug=1
   set -x
 else
   unset debug
@@ -117,7 +116,7 @@ EOF
     trap "$trapexit" EXIT
   }
 
-  if [[ -v debug ]]; then
+  if [[ -v debug && $debug -gt 1 ]]; then
     trap "echo at* variables:; set | grep -E ^ats?p?_" EXIT
   fi
 
@@ -414,6 +413,11 @@ EOF
     esac
   done
   shift $(expr $OPTIND - 1)
+
+  if [[ $# -ge 1 ]]; then
+    echo Error parsing arguments. Remaining arguments: "$@" >&2
+    exit 1
+  fi
 
   # Validate options
 
