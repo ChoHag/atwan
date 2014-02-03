@@ -151,7 +151,7 @@ at_args_a=(0 string)
 ats_build_summary='[-k <gpg signing key>] [-F <format>]'
 IFS='' read -r -d '' ats_build_options <<'EOF' || true
     -k: GPG key id to use to sign the initialiser iso.
-    -F: Output file format (iso, tgz).
+    -F: Output file format (iso, tgz, loop).
         Default: iso
 EOF
 ats_build_getopts=k:F:

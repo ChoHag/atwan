@@ -12,5 +12,19 @@ case "$at_optarg_F" in
   tgz)
     tar c -C "$at_build_dir" . | gzip -9c >"$newimg"
     ;;
+  loop*)
+    if [[ $at_optarg_F =~ ^loop:(.*) ]]; then
+      drive_size=${BASH_REMATCH[1]}
+    else
+      drive_size=$((1024*1024)) # 1MB
+    fi
+    dd if=/dev/zero of="$newimg" bs="$drive_size" count=1
+    tmpmount=$(mktemp -d ${at_work_dir:+--tmpdir="$at_work_dir"})
+    /sbin/mkfs.ext2 -F "$newimg"
+    sudo mount -o loop "$newimg" "$tmpmount"
+    sudo rsync -a "$at_build_dir"/ "$tmpmount"/
+    sudo umount "$tmpmount"
+    rmdir "$tmpmount"
+    ;;
 esac
 save_out_file "$newimg"
