@@ -1,0 +1,14 @@
+#!bash
+# included in the initialiser script on the gold image.
+
+# Attempt to mount a usb-storage device.
+#
+at_mount_usb() {
+  # Disgusting, dirty, horrible and probably won't work hack.
+  usb_device="$(/bin/ls /dev/sd* | sort | tail -n1)"
+  mount -o ro "$usb_device" "$at_top"
+}
+
+at_umount_usb() {
+  umount "$at_top"
+}
