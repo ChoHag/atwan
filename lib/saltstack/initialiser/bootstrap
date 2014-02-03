@@ -15,7 +15,7 @@ else
   return
 fi
 
-saltsrv=$(mktemp -d ${at_work_dir:+--tmpdir="$at_work_dir"})
+saltsrv=$(mktemp --tmpdir="$at_meta_dir" -d)
 
 git clone --depth 0 -b bootstrap -- "${at_optarg_E}" "$saltsrv"
 
@@ -23,13 +23,13 @@ newtgz=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
 tar czf "$newtgz" -C "$saltsrv" .
 mv "$newtgz" "$at_build_dir"/srv.tgz
 
-push at_autorun_steps bootstrap
+at_autorun_steps+=(salt_bootstrap)
 
 cat >"$at_meta_dir"/bootstrap.autorun <<'EVERYTHING'
 # Extract the bootstrap tarball in /srv. Note that this will walk all over /srv
 # without prejudice so make sure the tarball is safe.
 #
-autostep_bootstrap() {
+autostep_salt_bootstrap() {
   tar xz -C /srv <"$at_top"/srv.tgz
 }
 EVERYTHING

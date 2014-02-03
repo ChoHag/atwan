@@ -15,12 +15,20 @@ IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
 EOF
 ats_bootstrap_getopts=BC:E:
 
-ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-P <master fingerprint> | -W]"
+ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-P <master fingerprint> | -W] [-G <method> [-O <options>]] [-S <location>] [-z]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
+    Salt:
     -M: The salt master address to connect to from the minion.
     -P: Fingerprint of the salt master's public key.
     -W: Connect to an unverified salt master (mnemonic: pwn me).
+    -G: Generation method (salt-key, openssl)
+        Default: salt-key
+    -O: Key size in bits.
+        Default: 4096
+    -S: Location to submit node's public key to.
+        Default: same as -M, no default in bootstrap mode.
     -z: Perform the configuration step in the atwan plugin (openssh).
 EOF
-ats_configuration_getopts=${ats_configuration_getopts}M:P:Wz
+ats_configuration_getopts=${ats_configuration_getopts}M:P:WG:O:S:z
+at_args_O=(0 string 4096)

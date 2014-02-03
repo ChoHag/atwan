@@ -11,15 +11,13 @@ if [[ -v at_optarg_B && -v at_optarg_M ]]; then
 fi
 
 if [[ -v at_optarg_B ]]; then
+  echo '  Preparing for salt bootstrap (salt-call).'
   at_salt_minion_command="salt-call"
-  at_salt_minion_options="--local state.highstate"
-
-  if [[ -v at_optarg_C ]]; then
-    at_puppet_options="$at_salt_minion_options $at_optarg_C"
-  fi
+  at_salt_minion_options="--local state.highstate${at_optarg_C:+ $at_optarg_C}"
 
 else
   at_salt_minion_command="salt-minion"
+  unset at_salt_minion_uptions
 
   if [[ -v at_optarg_M ]]; then
     at_salt_master_address=$at_optarg_M
@@ -30,10 +28,7 @@ fi
 
 at_variables+=(at_salt_minion_command at_salt_minion_options)
 
-### autostep_salt_minion_install must be defined by a release
-at_autorun_steps+=(salt_start)
-
-if [[ ! -v at_optarg_P ]]; then
+if [[ ! -v at_optarg_P && ! -v at_optarg_B ]]; then
   echo WARNING: No salt master certificate fingerprint given. >&2
   if [[ ! -v at_optarg_W ]]; then
     echo "Not continuing without the pwn-me option (-W)." >&2
@@ -47,23 +42,84 @@ if [[ -v at_optarg_P ]]; then
   at_variables+=(at_salt_master_fingerprint)
 fi
 
+if [[ ! -v at_optarg_G && ! -v at_optarg_B ]]; then
+  at_optarg_G=salt-key
+fi
+
+case "$at_optarg_G" in
+  none|'') ;;
+  salt-key)
+    echo '  Generate salt keypair with salt-key.'
+    gendir="$(mktemp --tmpdir="$at_meta_dir" -d)"
+    salt-key --gen-keys-dir="$gendir" --gen-keys="$at_fqdn" --keysize=${at_optarg_O:-4096}
+    mv "$gendir"/"$at_fqdn".pem "$at_build_dir"/salt-private-key
+    mv "$gendir"/"$at_fqdn".pub "$at_build_dir"/salt-public-key
+    at_autorun_steps+=(salt_preseed_keys)
+    ;;
+  openssl)
+    echo '  Generate salt keypair with openssl.'
+    orig_umask=$(umask)
+    umask 077
+    openssl genrsa -out "$at_build_dir"/salt-private-key ${at_optarg_O:-4096}
+    umask 055
+    openssl rsa -pubout -in "$at_build_dir"/salt-private-key -out "$at_build_dir"/salt-public-key
+    umask $orig_umask
+    at_autorun_steps+=(salt_preseed_keys)
+    ;;
+  *)
+    echo 'Only generation with salt-key is supported for now.' >&2
+    return 1
+    ;;
+esac
+
+if [[ ! -v at_optarg_S && ! -v at_optarg_B ]]; then
+  at_optarg_S=$at_optarg_M
+fi
+
+if [[ -v at_optarg_S ]]; then
+  # Extremely hacky.
+  echo "  Saving public key to $at_optarg_S:/etc/salt/pki/master/minions/$at_fqdn."
+  scp "$at_build_dir"/salt-public-key "$at_optarg_S":/etc/salt/pki/master/minions/"$at_fqdn"
+fi
+
+at_autorun_steps+=(salt_start)
+
 if [[ ! -v at_optarg_z ]]; then
   unset at_continue
 fi
 
 cat >"$at_meta_dir"/saltstack.autorun <<'EVERYTHING'
+autostep_salt_preseed_keys() {
+  key_dir=/etc/salt/pki/minion
+  key_file="$key_dir"/minion
+
+  if [ ! -d "$key_dir" ]; then
+    mkdir -p "$key_dir"
+    chmod 700 "$key_dir"
+  fi
+
+  cp "$at_top"/salt-public-key "$key_file".pub
+  chmod 444 "$key_file".pub
+  cp "$at_top"/salt-private-key "$key_file".pem
+  chmod 400 "$key_file".pem
+}
+
 autostep_salt_start() {
-  salt_install_package
+  (
+    echo
+    echo '# Directives appended by Atwan:'
 
-  if [ x"$at_salt_master_address" != x ]; then
-    echo "master: $at_salt_master_address" >> /etc/salt/minion
-  fi
+    if [ x"$at_salt_master_address" != x ]; then
+      echo "master: $at_salt_master_address"
+    fi
 
-  if [ x"$at_salt_master_fingerprint" != x ]; then
-    echo "master_finger: $at_salt_master_fingerprint" >> /etc/salt/minion
-  fi
+    if [ x"$at_salt_master_fingerprint" != x ]; then
+      echo "master_finger: $at_salt_master_fingerprint"
+    fi
+
+    echo '# End of Atwan directives'
+  ) >> /etc/salt/minion
 
   "$at_salt_minion_command" $at_salt_minion_options
 }
 EVERYTHING
-

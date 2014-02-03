@@ -6,26 +6,21 @@
 # plugins if so desired.
 
 at_steps=(
-  ## Initialiso
+  ## Initialise the initialiser build.
   # Atwan gives you a build directory and that's it.
   'environment:      Prepare the build environment.'
   # Use mkreadme or there'll be a file called 'readme' which isn't a readme.
   'mkreadme:         Create a README file.'
   'stop_initialiser: Stop automatic initialiser \(cron\).'
 
-  ## Extra bootstrap
   'bootstrap:        Prepare a bootstrap image.'
 
-  ## Authentication
   'authentication:   Update authentication credentials.'
 
-  ## Networking
   'networking:       Configure networking:'
 
-  ## Maintenance
   'maintenance:      Configure ongoing maintenance:'
 
-  ## Configuration
   'configuration:    Configure configuration management:'
 
   ## Wrap up
@@ -93,14 +88,14 @@ ats_maintenance_getopts=y:t:e:
 
 ats_configuration_summary='[-N <alternate name>] [-K <key options>] [-D <distribution>] [-A <signing authority>] -b <public key or certificate> [ -s | -U [ -s [-V <revocation file>] [-Z <authorised principals>] ] ]'
 IFS='' read -r -d '' ats_configuration_options <<'EOF' || true
-    Host:
+    SSH Host:
     -N: Additional names (comma-separated).
     -K: The key types to be generated specified as a colon-separated list.
         Default: ecdsa:rsa:dsa
     -D: Public key distribution method.
         Default: user-known-hosts
     -A: (Unimplemented) Signing authority.
-    User:
+    SSH User:
     -b: Public key or certificate file to include.
     -s: Send a certificate instead of a public key.
     -U: Install the certificate[s] system-wide.

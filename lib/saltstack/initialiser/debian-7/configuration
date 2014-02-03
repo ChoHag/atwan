@@ -3,8 +3,10 @@
 #
 # Include the command to install salt minion in Debian.
 
+at_autorun_steps+=(salt_install)
+
 cat >"$at_meta_dir"/saltstack-release.autorun <<'EVERYTHING'
-autostep_salt_install
+autostep_salt_install() {
   echo '#!/bin/sh' >/usr/sbin/policy-rc.d
   echo 'exit 101' >>/usr/sbin/policy-rc.d
   chmod 755 /usr/sbin/policy-rc.d
