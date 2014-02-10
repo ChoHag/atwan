@@ -37,7 +37,7 @@
   echo 'pvcreate -ffy ${d}2';
   echo 'vgcreate vgos ${d}2';
   echo 'update-dev --settle';
-  echo 'lvcreate -L 512G -n swap0 vgos';
+  echo 'lvcreate -L 512M -n swap0 vgos';
   echo 'lvcreate -L 1G -n root vgos';
   echo 'update-dev --settle';
   echo 'mkfs.ext3 ${d}1';

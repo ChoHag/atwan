@@ -126,7 +126,7 @@ if [[ -v at_optarg_D && $at_optarg_D != none ]]; then
       mkdir $HOME/.ssh
       chmod 700 $HOME/.ssh
     fi
-    names="$at_hostname,$at_fqdn,$at_ip,${at_optarg_N:+,$at_optarg_N}"
+    names="$at_hostname,$at_fqdn,$at_ip${at_optarg_N:+,$at_optarg_N}"
     (
       echo "# Public keys for $at_optarg_n at $(date)"
       for key in "${public_keys[@]}"; do
