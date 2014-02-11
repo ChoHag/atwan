@@ -16,8 +16,53 @@ else
 fi
 
 saltsrv=$(mktemp --tmpdir="$at_meta_dir" -d)
+if [[ ! -v at_optarg_H ]]; then # -E option is git checkout of /srv
+  git clone --depth 0 -b bootstrap -- "${at_optarg_E}" "$saltsrv"
 
-git clone --depth 0 -b bootstrap -- "${at_optarg_E}" "$saltsrv"
+else # -E option is git pillar which points to states
+  git clone --depth 0 -b bootstrap -- "${at_optarg_E}" "$saltsrv"/pillar
+
+  if [[ ! -e "$saltsrv"/pillar/bootstrap.sls ]]; then
+    echo "Git repository (bootstrap branch) at $at_optarg_E does not contain bootstrap.sls." >&2
+    return 1
+  fi
+
+  mkdir "$saltsrv"/salt
+
+  perl='@gits = @{Load (join"",<>)->{salt}{master}{gitfs_remotes}} or die "No gitfs_remotes found"; say for @gits'
+  perl -MYAML -E "$perl" <"$saltsrv"/pillar/bootstrap.sls | while read giturl; do
+    gitcache=$(mktemp --tmpdir="$at_meta_dir" -d)
+    git clone "$giturl" "$gitcache"
+
+    pushd "$gitcache"
+    git for-each-ref refs/remotes/origin --format='%(refname:short)' \
+	| while read branch; do
+      if [[ $branch == origin/bootstrap ]]; then
+	git checkout -b bootstrap origin/bootstrap
+      fi
+    done
+    popd
+
+    for entry in "$gitcache"/{*,.*}; do
+      name=$(basename "$entry")
+      if [[ $name == . || $name == .. || $name == .git ]]; then
+	continue
+      fi
+      if [[ -d $entry ]]; then
+	name="$name/"
+      fi
+      rsync -a${debug:+v} --delete "$gitcache"/"$name" "$saltsrv"/salt/"$name"
+    done
+  done
+
+  if [[ ! -e "$saltsrv"/pillar/top.sls ]]; then
+    echo $'base:\n  '"$at_optarg_n"$':\n    - bootstrap' >"$saltsrv"/pillar/top.sls
+    pushd "$saltsrv"/pillar
+    git add top.sls
+    git commit -m "Create top.sls for bootstrap."
+    popd
+  fi
+fi
 
 newtgz=$(mktemp ${at_work_dir:+--tmpdir="$at_work_dir"})
 tar czf "$newtgz" -C "$saltsrv" .

@@ -3,11 +3,14 @@
 #
 # Configure salt minion as the new server's configuration management tool.
 
+unset at_salt_bootstrap_master
 if [[ -v at_optarg_B && -v at_optarg_M ]]; then
-  echo Maybe in the future it will make sense to connect to a salt master on >&2
-  echo a bootstrapped note, but not now.  >&2
-  echo 'The bootstrap (-B) and salt master (-M) options are incompatible.' >&2
-  return 1
+  at_salt_bootstrap_master=1
+  if [[ ! $at_optarg_M =~ ^(localhost|127\.0\.0\.1|::1|$at_optarg_n)$ ]]; then
+    echo "A bootstrap salt master's minion must connect to itself not $at_optarg_M:" >&2
+    echo "Only localhost, 127.0.0.1, ::1 or $at_optarg_n are accepted to -B -M ...." >&2
+    return 1
+  fi
 fi
 
 if [[ -v at_optarg_B ]]; then
@@ -47,9 +50,12 @@ if [[ ! -v at_optarg_G && ! -v at_optarg_B ]]; then
 fi
 
 case "$at_optarg_G" in
-  none|'') ;;
+  none|'')
+    at_salt_bootstrap_master=${at_salt_bootstrap_master:+self}
+    ;;
   salt-key)
     echo '  Generate salt keypair with salt-key.'
+    at_salt_bootstrap_master=${at_salt_bootstrap_master:+pre}
     gendir="$(mktemp --tmpdir="$at_meta_dir" -d)"
     salt-key --gen-keys-dir="$gendir" --gen-keys="$at_fqdn" --keysize=${at_optarg_O:-4096}
     mv "$gendir"/"$at_fqdn".pem "$at_build_dir"/salt-private-key
@@ -58,6 +64,7 @@ case "$at_optarg_G" in
     ;;
   openssl)
     echo '  Generate salt keypair with openssl.'
+    at_salt_bootstrap_master=${at_salt_bootstrap_master:+pre}
     orig_umask=$(umask)
     umask 077
     openssl genrsa -out "$at_build_dir"/salt-private-key ${at_optarg_O:-4096}
@@ -67,7 +74,7 @@ case "$at_optarg_G" in
     at_autorun_steps+=(salt_preseed_keys)
     ;;
   *)
-    echo 'Only generation with salt-key is supported for now.' >&2
+    echo 'Only generation with salt-key or openssl is supported for now.' >&2
     return 1
     ;;
 esac
@@ -82,7 +89,11 @@ if [[ -v at_optarg_S ]]; then
   scp "$at_build_dir"/salt-public-key "$at_optarg_S":/etc/salt/pki/master/minions/"$at_fqdn"
 fi
 
-at_autorun_steps+=(salt_start)
+if [[ -v at_salt_bootstrap_master ]]; then
+  at_autorun_steps+=(salt_pretrust_master salt_start salt_master_highstate)
+else
+  at_autorun_steps+=(salt_start)
+fi
 
 if [[ ! -v at_optarg_z ]]; then
   unset at_continue
@@ -102,6 +113,25 @@ autostep_salt_preseed_keys() {
   chmod 444 "$key_file".pub
   cp "$at_top"/salt-private-key "$key_file".pem
   chmod 400 "$key_file".pem
+}
+
+autostep_salt_pretrust_master() {
+  source_file=/etc/salt/pki/minion/minion.pub
+  accepted_dir=/etc/salt/pki/master/minions
+
+  if [ ! -d "$accepted_dir" ]; then
+    mkdir -p "$accepted_dir"
+    chmod 700 "$accepted_dir"
+  fi
+
+  ln -sf "$source_file" "$accepted_dir"/$at_fqdn
+}
+
+autostep_salt_master_highstate() {
+  echo "Running state.highstate"
+  # I have no idea why this should be required to make it work, but it does.
+  sleep 30
+  salt -v -t 60 \* state.highstate # Returns 0 regardless
 }
 
 autostep_salt_start() {

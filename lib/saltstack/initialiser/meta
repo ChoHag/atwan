@@ -6,20 +6,26 @@ at_steps=(
   pre/configuration
 )
 
-ats_bootstrap_summary='[ -B [-C <command-line>] [-E <git repository>] ]'
+ats_bootstrap_summary='[ -B [-C <command-line>] [ -E <git repository> [-H] ] ]'
 IFS='' read -r -d '' ats_bootstrap_options <<'EOF' || true
     -B: Create a bootstrap iso.
     -C: Extra options to the salt-call command.
-    -E: A git repository which has been constructed according to rules I'm
-        still pulling out of my arse.
+    -E: A git repository whose bootstrap branch will be checked out to /srv.
+    -H: The git repository contains only the contents of /srv/pillar, and its
+        bootstrap.sls file will be used to construct /srv/salt.
 EOF
-ats_bootstrap_getopts=BC:E:
+ats_bootstrap_getopts=BC:E:H
 
 ats_configuration_summary="$ats_configuration_summary [-M <salt master>] [-P <master fingerprint> | -W] [-G <method> [-O <options>]] [-S <location>] [-z]"
 IFS='' read -r -d '' ats_configuration_options <<EOF || true
 $ats_configuration_options
     Salt:
     -M: The salt master address to connect to from the minion.
+        A bootstrap iso only accepts the arguments 'localhost' (along with
+	'127.0.0.1' or '::1') or the name given to -n. In this case it used
+	as normal but indicated that the bootstrap node is a salt master and
+	that atwan should also install the node's public key in the master's
+	accetped keystore.
     -P: Fingerprint of the salt master's public key.
     -W: Connect to an unverified salt master (mnemonic: pwn me).
     -G: Generation method (salt-key, openssl)
